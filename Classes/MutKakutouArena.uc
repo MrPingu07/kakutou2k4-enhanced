@@ -67,18 +67,35 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
 simulated function ModifyPlayer(Pawn Other)
 {
 	local Pawn OldPawn;
+	local Inventory Inv;
+
     if ( !Other.IsA('K2k4xPawn') )
     {
         OldPawn=Other;
         Other.Controller.PawnClass = class'K2k4xPawn';
         Level.Game.RestartPlayer(Other.Controller);
-//Perhaps you should get rid of OldPawn after NextMutator, not before?
         OldPawn.UnPossessed();
         OldPawn.Destroy();
+        return;
     }
 
+    // Let the rest of the chain set up its loadout first.
     if ( NextMutator != None )
         NextMutator.ModifyPlayer(Other);
+
+    // Arena is unarmed-only, so make sure Unarmed is present even when a
+    // weapon/loadout mutator removed or replaced the default slot.
+    if ( (Other.Health > 0) && (Other.FindInventoryType(class'Unarmed') == None) )
+    {
+        Inv = Spawn(class'Unarmed', Other);
+        if ( Inv != None )
+        {
+            Inv.GiveTo(Other);
+            if ( (Other.FindInventoryType(class'Unarmed') != None)
+                && (Other.Controller != None) )
+                Other.Controller.ClientSetWeapon(class'Unarmed');
+        }
+    }
 }
 
 function PlayerChangedClass(Controller aPlayer)

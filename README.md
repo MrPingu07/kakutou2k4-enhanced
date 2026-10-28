@@ -22,6 +22,11 @@ camera compatibility.
 - **Third-person camera awareness.** When `GTAThirdPerson` is installed, its
   `GTAPlayerController` owns the view and Kakutou defers to it. The camera mod
   is not bundled here.
+- **Guaranteed spawn weapon.** After the rest of the mutator chain sets up its
+  loadout, Kakutou checks for `Unarmed` and grants it if missing, so weapon or
+  loadout mutators that replace the ShieldGun slot (UT99-style loadouts, for
+  example) can no longer lock the martial-arts weapon out. If `Unarmed` is
+  already present, the check does nothing.
 
 See [ROADMAP.md](ROADMAP.md) for the current state and planned work.
 
