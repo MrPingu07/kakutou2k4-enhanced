@@ -1,0 +1,4 @@
+[Public]
+Object=(Name=Kakutou2k4.MutKakutou2k4,Class=Class,MetaClass=Engine.Mutator,Description="Kakutou 2004")
+Object=(Name=Kakutou2k4.MutKakutouArena,Class=Class,MetaClass=Engine.Mutator,Description="Kakutou Arena 2004")
+Object=(Class=Class,MetaClass=Engine.Weapon,Name=Kakutou2k4.Unarmed,Description="Challenge your opponent with honor and beat him with martial arts.")
