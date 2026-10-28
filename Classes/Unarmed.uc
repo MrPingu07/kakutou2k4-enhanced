@@ -329,8 +329,15 @@ defaultproperties
     AIRating=0.39
     CurrentRating=0.39
     // Keep Unarmed ahead of other weapons in inventory group 1 (the
-    // ShieldGun slot), even if another mutator or pickup adds one there.
+    // ShieldGun slot), even if another mutator or pickup adds one there, so
+    // the slot key and auto-switch always land on Unarmed.
     Priority=50
+    // Stock weapons all use GroupOffset 0. Giving Unarmed offset 1 keeps a
+    // second group-1 weapon (a ShieldGun or Impact Hammer picked up during
+    // play) reachable with the previous/next weapon keys instead of being
+    // stranded in the same group. Both values are class defaults, so the
+    // server and the HUD agree without needing replication.
+    GroupOffset=1
     bMeleeWeapon=True
     bCanThrow=False
     PickupClass=Class'UnarmedPickup'

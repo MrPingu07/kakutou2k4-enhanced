@@ -31,6 +31,12 @@ camera compatibility.
   replaces it with `Unarmed`, just as it would replace the ShieldGun. If
   `Unarmed` is already present, no duplicate is created, and it is brought up
   on every spawn and respawn.
+- **Pickups still work.** A ShieldGun, Impact Hammer or other group-1 weapon
+  picked up during play is allowed to coexist with `Unarmed` instead of being
+  destroyed. `Unarmed` keeps the highest in-group priority, so the slot key and
+  auto-switch always land on it, and it uses `GroupOffset=1` so the extra
+  weapon stays reachable by cycling weapons. The spawn loadout is reset to
+  `Unarmed` alone on the next respawn.
 
 See [ROADMAP.md](ROADMAP.md) for the current state and planned work.
 
