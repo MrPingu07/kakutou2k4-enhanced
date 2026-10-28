@@ -83,32 +83,12 @@ simulated event WeaponTick(float dt)				//unneeded?
 
 simulated function DoAdjustments(float DeltaTime)
 {
-//Adjust ground speed according to weapon type, movement direction, and current combo
-	if ( K2k4xPawn(Instigator).CurrentCombo!=None && K2k4xPawn(Instigator).CurrentCombo.IsA('ComboSpeed') )
-	{
-		if  (!bAdjustedForComboSpeed)
-		{
-			Instigator.GroundSpeed = Instigator.Default.GroundSpeed * 1.4;
-			bAdjustedForComboSpeed=true;
-		}
-	}
-	else
-	{
-		bAdjustedForComboSpeed = false;
+//The martial arts weapon never alters ground speed. Keep it at the class default.
+	if (Instigator.GroundSpeed != Instigator.Default.GroundSpeed)
+		Instigator.GroundSpeed = Instigator.Default.GroundSpeed;
 
-		if (bIsUnarmed)
-		{
-			Dir = Instigator.Controller.GetFacingDirection();
-			SpeedBonus = (((Abs(32768 - Dir))/32768 ) * 0.3) + 1;
-//			SpeedBonus = Abs(32768-Dir) * 0.0000091552734375 + 1;
-//			SpeedBonus = (((Abs(32768 - Dir))/32768 ) * 5.0) + 1;
-			Instigator.GroundSpeed = Instigator.Default.GroundSpeed * SpeedBonus;
-		}
-		else if (Instigator.GroundSpeed != Instigator.Default.GroundSpeed)
-		{
-			Instigator.GroundSpeed = Instigator.Default.GroundSpeed;
-		}
-	}
+//The combo flag still drives the jump adjustments below.
+	bAdjustedForComboSpeed = ( K2k4xPawn(Instigator).CurrentCombo!=None && K2k4xPawn(Instigator).CurrentCombo.IsA('ComboSpeed') );
 
     if (!bIsUnarmed)
     	bIsLeaping=false;

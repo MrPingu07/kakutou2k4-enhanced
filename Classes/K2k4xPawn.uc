@@ -54,6 +54,7 @@ var config rotator K2k4ForearmL;	// forearm offset that straightens the left elb
 var config rotator K2k4ForearmR;	// forearm offset that straightens the right elbow (User.ini)
 var config rotator K2k4WristL;		// hand offset for the left wrist (Bip01 L Finger0, User.ini)
 var config rotator K2k4WristR;		// hand offset for the right wrist (Bip01 R Hand, User.ini)
+var config float K2k4AirJumpBoostFraction;	// extra-jump speed nudge, fraction of GroundSpeed (User.ini)
 var config bool bK2k4DebugAnim;	// log channel/idle changes to UT2004.log (User.ini)
 var name K2k4DbgSeq0, K2k4DbgSeq1, K2k4DbgIdle;
 var float K2k4ArmAlpha;			// how much of the arm-down offset is applied (0..1)
@@ -305,11 +306,36 @@ function bool DoJump(bool bUpdating)
 		// direct calls). Do not overwrite that with a takeoff clip.
 		if ( !bWasFalling && !bUpdating )
 			K2k4PlayAirAnim(DoubleJumpAnims[K2k4GetAirDirection()]);
+		else if ( bWasFalling )
+			K2k4AirJumpBoost();
 
 		return true;
 	}
 
 	return false;
+}
+
+// Each extra (mid-air) jump nudges the pawn forward by a small fraction of its
+// current ground speed, along its horizontal travel (or facing if standing
+// still). It is an impulse only: no timer, nothing held after the jump.
+simulated function K2k4AirJumpBoost()
+{
+	local vector Dir;
+
+	if ( K2k4AirJumpBoostFraction <= 0.0 )
+		return;
+
+	Dir = Velocity;
+	Dir.Z = 0.0;
+	if ( VSize(Dir) < 1.0 )
+	{
+		Dir = vector(Rotation);
+		Dir.Z = 0.0;
+	}
+	if ( VSize(Dir) < 0.001 )
+		return;
+
+	Velocity += Normal(Dir) * (GroundSpeed * K2k4AirJumpBoostFraction);
 }
 
 // Every extra jump before landing: replace the stock double-jump clip
@@ -703,6 +729,7 @@ defaultproperties
     K2k4CombatHold=2.0
     K2k4RelaxBlend=1.0
     K2k4RelaxIdleAnim="Ready"
+    K2k4AirJumpBoostFraction=0.025
     K2k4ArmDownL=(Pitch=0,Yaw=0,Roll=0)
     K2k4ArmDownR=(Pitch=0,Yaw=0,Roll=0)
 }
