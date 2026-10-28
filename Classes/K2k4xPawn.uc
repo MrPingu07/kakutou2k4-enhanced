@@ -703,6 +703,6 @@ defaultproperties
     K2k4CombatHold=2.0
     K2k4RelaxBlend=1.0
     K2k4RelaxIdleAnim="Ready"
-    K2k4ArmDownL=(Roll=-12000)
-    K2k4ArmDownR=(Roll=12000)
+    K2k4ArmDownL=(Pitch=0,Yaw=0,Roll=0)
+    K2k4ArmDownR=(Pitch=0,Yaw=0,Roll=0)
 }
