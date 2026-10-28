@@ -115,7 +115,7 @@ defaultproperties
     GuardBonus=3
     MissPenalty=3
     LeapBonus=100
-    ConfigMenuClassName="Kakutou2k4.K2k4MutConfig"
+    ConfigMenuClassName="Kakutou2k4-Enhanced.K2k4MutConfig"
     GroupName="Kakutou2004"
     FriendlyName="Kakutou 2004"
     Description="Players spawn with martial art skills instead of the ShieldGun."

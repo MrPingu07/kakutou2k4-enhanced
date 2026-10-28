@@ -58,12 +58,36 @@ gameplay documentation.
 
 ## Installation
 
-1. Copy `System/Kakutou2k4.u`, `System/Kakutou2k4.int` and
-   `System/Kakutou2k4.ucl` into `UT2004/System/`.
+1. Copy `System/Kakutou2k4-Enhanced.u`,
+   `System/Kakutou2k4-Enhanced.int` and `System/Kakutou2k4-Enhanced.ucl`
+   into `UT2004/System/`.
 2. Copy `Sounds/K2k4Sounds.uax` into `UT2004/Sounds/`.
 3. Optionally copy `Help/Kakutou2k4_Readme.txt` into `UT2004/Help/`.
 4. Select **Kakutou 2004** (or **Kakutou Arena 2004**) from the in-game
    mutator list.
+
+The package is named `Kakutou2k4-Enhanced`, so it can be installed alongside
+the original `Kakutou2k4` package without one overwriting the other.
+
+## Dedicated servers
+
+Add the packages to `[Engine.GameEngine]` in the server's `UT2004.ini`:
+
+```ini
+ServerPackages=Kakutou2k4-Enhanced
+ServerPackages=K2k4Sounds
+```
+
+`ServerPackages` entries are package names, not file names or folder names.
+Then start the mutator:
+
+```ini
+?mutator=Kakutou2k4-Enhanced.MutKakutou2k4
+```
+
+Use `Kakutou2k4-Enhanced.MutKakutouArena` for Arena. Clients that do not have
+the files need a redirect (`[IpDrv.HTTPDownload] RedirectToURL`) or the
+release zip installed.
 
 ## Building from source
 
@@ -72,13 +96,15 @@ The mod is UnrealScript; all classes live in `Classes/`.
 1. Install the UT2004 Editor/UCC tools.
 2. Put `K2k4Sounds.uax` in `UT2004/Sounds/` so the package can resolve its
    sounds during compilation.
-3. Make the repository visible to the editor as package `Kakutou2k4` (for
-   example, a `UT2004/Kakutou2k4` directory link containing `Classes/` and
-   `Models/`, plus `EditPackages=Kakutou2k4` in `UT2004.ini`).
-4. Run `ucc make` from `UT2004/System/`. The compiled `Kakutou2k4.u` is
-   written to `System/`.
+3. Make the repository visible to the editor as package
+   `Kakutou2k4-Enhanced` (for example, a
+   `UT2004/Kakutou2k4-Enhanced` directory link containing `Classes/` and
+   `Models/`, plus `EditPackages=Kakutou2k4-Enhanced` in `UT2004.ini`).
+4. Run `ucc make` from `UT2004/System/`. The compiled
+   `Kakutou2k4-Enhanced.u` is written to `System/`.
 
-`System/Kakutou2k4.u` in this repository is the current verified build.
+`System/Kakutou2k4-Enhanced.u` in this repository is the current verified
+build.
 
 ## Credits
 

@@ -504,7 +504,7 @@ simulated function AddDefaultInventory()
 
 defaultproperties
 {
-    RequiredEquipment(1)="Kakutou2k4.Unarmed"
+    RequiredEquipment(1)="Kakutou2k4-Enhanced.Unarmed"
     bSpecialCalcView=True
     bReplicateAnimations=True
 }

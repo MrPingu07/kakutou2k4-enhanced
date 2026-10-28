@@ -33,7 +33,7 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
 		if ( !Other.IsA('Unarmed') )
 		{
 			Level.Game.bWeaponStay = false;
-			ReplaceWith(Other, "Kakutou2k4.Unarmed");
+			ReplaceWith(Other, "Kakutou2k4-Enhanced.Unarmed");
 			return false;
 		}
 
@@ -131,7 +131,7 @@ defaultproperties
     GuardBonus=3
     MissPenalty=3
     LeapBonus=100
-    ConfigMenuClassName="Kakutou2k4.K2k4MutConfig"
+    ConfigMenuClassName="Kakutou2k4-Enhanced.K2k4MutConfig"
     GroupName="KakutouArena2004"
     FriendlyName="Kakutou Arena 2004"
     Description="No Weapons, Martial arts Arena fighting for 2004."
