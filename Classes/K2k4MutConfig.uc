@@ -10,7 +10,7 @@ Kakutou 2004!!!
 
 class K2k4MutConfig extends GUIPage;
 
-var moEditBox MinBlockBox, MaxBlockBox, HitBonusBox, GuardBonusBox, MissPenaltyBox, LeapBonusBox;
+var moEditBox MinBlockBox, MaxBlockBox, HitBonusBox, GuardBonusBox, MissPenaltyBox, LeapBonusBox, AirJumpBoostBox;
 
 // Called when our GUI component is initiated (in this case our config window)
 function InitComponent(GUIController MyController, GUIComponent MyOwner)
@@ -24,6 +24,7 @@ function InitComponent(GUIController MyController, GUIComponent MyOwner)
 	GuardBonusBox = moEditBox(Controls[7]);
 	MissPenaltyBox = moEditBox(Controls[8]);
 	LeapBonusBox = moEditBox(Controls[10]);
+	AirJumpBoostBox = moEditBox(Controls[11]);
 
     // Set the EditBoxes to be integer only because we are only dealing with numbers
     MinBlockBox.IntOnly(true);
@@ -40,6 +41,7 @@ function InitComponent(GUIController MyController, GUIComponent MyOwner)
 	GuardBonusBox.SetText(string(class'MutKakutou2k4'.default.GuardBonus));
 	MissPenaltyBox.SetText(string(class'MutKakutou2k4'.default.MissPenalty));
 	LeapBonusBox.SetText(string(class'MutKakutou2k4'.default.LeapBonus));
+	AirJumpBoostBox.SetText(string(class'K2k4xPawn'.default.K2k4AirJumpBoostFraction * 100.0));
 }
 
 // Called when the OK button is clicked
@@ -67,6 +69,10 @@ function bool internalOnClick(GUIComponent Sender)
 		MissPenaltyBox.SetText(string('0'));
 	if ( int(LeapBonusBox.GetText()) < 0 )
 		LeapBonusBox.SetText(string('0'));
+	if ( float(AirJumpBoostBox.GetText()) < 0.0 )
+		AirJumpBoostBox.SetText(string('0'));
+	if ( float(AirJumpBoostBox.GetText()) > 100.0 )
+		AirJumpBoostBox.SetText(string('100'));
 
     // Set our Mutator's variables to the new variables that were set by the user
     class'MutKakutou2k4'.default.MinBlock = int(MinBlockBox.GetText());
@@ -85,6 +91,9 @@ function bool internalOnClick(GUIComponent Sender)
 	class'MutKakutouArena'.default.LeapBonus = int(LeapBonusBox.GetText());
     class'MutKakutouArena'.static.StaticSaveConfig();  // Save all the Mutator's config variables
 
+    class'K2k4xPawn'.default.K2k4AirJumpBoostFraction = float(AirJumpBoostBox.GetText()) / 100.0;
+    class'K2k4xPawn'.static.StaticSaveConfig();
+
     Controller.CloseMenu(false);    // Close the window
 
     return true;    // Return True (hard to figure out eh?) ;)
@@ -99,6 +108,7 @@ function bool ResetToDefaults(GUIComponent Sender)
 	GuardBonusBox.SetText(string('3'));
 	MissPenaltyBox.SetText(string('3'));
 	LeapBonusBox.SetText(string('100'));
+	AirJumpBoostBox.SetText("2.5");
 
     return true;    // Return True (hard to figure out eh?) ;)
 }
@@ -243,6 +253,17 @@ defaultproperties
 		bBoundToParent=true
     End Object
     Controls(10)=moEditBox'LeapBonus'
+
+    Begin Object class=moEditBox name=AirJumpBoost
+		WinWidth=0.4
+        WinHeight=0.04
+		WinLeft=0.05
+        WinTop=0.7
+        Caption="Air Jump Boost (% of speed)"
+        bReadOnly=false
+		bBoundToParent=true
+    End Object
+    Controls(11)=moEditBox'AirJumpBoost'
 
     // The Window's own properties (MJMutConfig)
     WinLeft=0
