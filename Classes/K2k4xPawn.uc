@@ -109,6 +109,9 @@ simulated function Tick(float DeltaTime)
 				pc.myHUD.bCrosshairShow = pc.myHUD.default.bCrosshairShow;
 
 			// Arms down until a combat action has happened recently.
+			// The engine's own standing idle plays IdleRestAnim, so it follows too.
+			if (IdleRestAnim != K2k4RelaxIdle())
+				IdleRestAnim = K2k4RelaxIdle();
 			if ( !bK2k4Combat )
 			{
 				if (IdleWeaponAnim != K2k4RelaxIdle())
@@ -123,6 +126,8 @@ simulated function Tick(float DeltaTime)
 		{
 			pc.myHUD.bCrosshairShow = pc.myHUD.default.bCrosshairShow;
 		}
+		if ( (Weapon == None) || !Weapon.IsA('Unarmed') )
+			IdleRestAnim = default.IdleRestAnim;
 	}
 
 	// An air override ends the moment we are back on the ground
@@ -149,7 +154,7 @@ simulated function name K2k4RelaxIdle()
 {
 	if ( (K2k4RelaxIdleAnim != '') && HasAnim(K2k4RelaxIdleAnim) )
 		return K2k4RelaxIdleAnim;
-	return IdleRestAnim;
+	return default.IdleRestAnim;
 }
 
 simulated function name K2k4DesiredUpperIdle()
