@@ -54,6 +54,8 @@ var config rotator K2k4ForearmL;	// forearm offset that straightens the left elb
 var config rotator K2k4ForearmR;	// forearm offset that straightens the right elbow (User.ini)
 var config rotator K2k4WristL;		// hand offset for the left wrist (Bip01 L Finger0, User.ini)
 var config rotator K2k4WristR;		// hand offset for the right wrist (Bip01 R Hand, User.ini)
+var config bool bK2k4DebugAnim;	// log channel/idle changes to UT2004.log (User.ini)
+var name K2k4DbgSeq0, K2k4DbgSeq1, K2k4DbgIdle;
 var float K2k4ArmAlpha;			// how much of the arm-down offset is applied (0..1)
 var bool bK2k4ArmOn;			// the arm bones currently carry an offset
 
@@ -130,6 +132,8 @@ simulated function Tick(float DeltaTime)
 
 	K2k4UpdateUpperBody();
 	K2k4UpdateArmDown(DeltaTime);
+	if ( bK2k4DebugAnim && (pc != None) )
+		K2k4DebugAnim();
 
 	PrevAnimAction = AnimAction;
 	super.Tick(DeltaTime);
@@ -312,6 +316,23 @@ simulated function K2k4ResetUpperBody()
 	K2k4UpperIdle = '';
 	bK2k4Combat = false;
 	AnimBlendToAlpha(1, 0.0, 0.15);
+}
+
+// Logs channel 0/1 sequence and idle-anim changes, only when they change.
+simulated function K2k4DebugAnim()
+{
+	local name S0, S1;
+	local float F, R;
+
+	GetAnimParams(0, S0, F, R);
+	GetAnimParams(1, S1, F, R);
+	if ( (S0 != K2k4DbgSeq0) || (S1 != K2k4DbgSeq1) || (IdleWeaponAnim != K2k4DbgIdle) )
+	{
+		log("K2k4DBG t="$Level.TimeSeconds$" ch0="$S0$" ch1="$S1$" idle="$IdleWeaponAnim$" combat="$bK2k4Combat$" unarmed="$(Unarmed(Weapon) != None));
+		K2k4DbgSeq0 = S0;
+		K2k4DbgSeq1 = S1;
+		K2k4DbgIdle = IdleWeaponAnim;
+	}
 }
 
 // Arms down: rotate the upper arms on top of the relaxed base pose. The offset
