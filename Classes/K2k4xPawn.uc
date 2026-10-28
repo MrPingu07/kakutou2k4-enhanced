@@ -29,9 +29,6 @@ class K2k4xPawn extends xPawn
 #exec ANIM IMPORT ANIM=K2k4FlagAnims1 ANIMFILE=MODELS\K2k4FlagAnims1.PSA COMPRESS=0.9 MAXKEYS=9999999
 #exec ANIM DIGEST ANIM=K2k4FlagAnims1 USERAWINFO VERBOSE
 
-#exec ANIM IMPORT ANIM=KakutouAnims ANIMFILE=MODELS\KakutouAnims.PSA COMPRESS=0.9 MAXKEYS=9999999
-#exec ANIM DIGEST ANIM=KakutouAnims USERAWINFO VERBOSE
-
 //var float BerRate, BerTween;   //removed for UT2K4 compatibility
 var name PrevAnimAction;
 
@@ -61,7 +58,6 @@ simulated function AssignInitialPose()
 	LinkSkelAnim(MeshAnimation'K2k4Anims1');
 	LinkSkelAnim(MeshAnimation'K2k4FlagAnims');
 	LinkSkelAnim(MeshAnimation'K2k4FlagAnims1');
-	LinkSkelAnim(MeshAnimation'KakutouAnims');
 
 	// Torso root for the martial-arts overlay. Channel 1 therefore only
 	// overrides the bones from the lower spine upwards; hips/legs stay free
@@ -544,16 +540,4 @@ defaultproperties
     RequiredEquipment(1)="Kakutou2k4-Enhanced.Unarmed"
     bSpecialCalcView=True
     bReplicateAnimations=True
-    // Martial-arts locomotion borrowed from KakutouAnims.psa (already in the
-    // package, just never imported). MovementAnims/WalkAnims are read natively
-    // by the engine's locomotion system, so overriding them here makes the
-    // unarmed pawn use KRunF/B/L/R instead of the stock weapon-centric RunF/B/L/R.
-    MovementAnims(0)="KRunF"
-    MovementAnims(1)="KRunB"
-    MovementAnims(2)="KRunL"
-    MovementAnims(3)="KRunR"
-    WalkAnims(0)="KRunF"
-    WalkAnims(1)="KRunB"
-    WalkAnims(2)="KRunL"
-    WalkAnims(3)="KRunR"
 }
