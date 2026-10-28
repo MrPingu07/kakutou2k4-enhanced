@@ -50,6 +50,8 @@ var float K2k4RelaxBlend;       // blend-out time for the return to relaxed
 var config name K2k4RelaxIdleAnim;	// relaxed standing base pose (falls back to IdleRestAnim)
 var config rotator K2k4ArmDownL;	// upper-arm offset that lowers the left arm (User.ini)
 var config rotator K2k4ArmDownR;	// upper-arm offset that lowers the right arm (User.ini)
+var config rotator K2k4ForearmL;	// forearm offset that straightens the left elbow (User.ini)
+var config rotator K2k4ForearmR;	// forearm offset that straightens the right elbow (User.ini)
 var float K2k4ArmAlpha;			// how much of the arm-down offset is applied (0..1)
 var bool bK2k4ArmOn;			// the arm bones currently carry an offset
 
@@ -335,12 +337,16 @@ simulated function K2k4UpdateArmDown(float DeltaTime)
 	{
 		SetBoneRotation('Bip01 L UpperArm', K2k4ArmDownL, 0, K2k4ArmAlpha);
 		SetBoneRotation('Bip01 R UpperArm', K2k4ArmDownR, 0, K2k4ArmAlpha);
+		SetBoneRotation('Bip01 L Forearm', K2k4ForearmL, 0, K2k4ArmAlpha);
+		SetBoneRotation('Bip01 R Forearm', K2k4ForearmR, 0, K2k4ArmAlpha);
 		bK2k4ArmOn = true;
 	}
 	else if ( bK2k4ArmOn )
 	{
 		SetBoneRotation('Bip01 L UpperArm', rot(0,0,0), 0, 0.0);
 		SetBoneRotation('Bip01 R UpperArm', rot(0,0,0), 0, 0.0);
+		SetBoneRotation('Bip01 L Forearm', rot(0,0,0), 0, 0.0);
+		SetBoneRotation('Bip01 R Forearm', rot(0,0,0), 0, 0.0);
 		bK2k4ArmOn = false;
 	}
 }
