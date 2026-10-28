@@ -662,7 +662,7 @@ defaultproperties
     bReplicateAnimations=True
     K2k4CombatHold=2.0
     K2k4RelaxBlend=1.0
-    K2k4RelaxIdleAnim="Idle_Rest"
+    K2k4RelaxIdleAnim="Ready"
     K2k4ArmDownL=(Roll=-12000)
     K2k4ArmDownR=(Roll=12000)
 }
