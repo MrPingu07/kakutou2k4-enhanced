@@ -5,6 +5,14 @@ for Unreal Tournament 2004. This fork preserves the original gameplay, models,
 animations and sounds, and modernizes the animation layer and third-person
 camera compatibility.
 
+## Download
+
+Grab the latest build from the
+[Releases page](https://github.com/MrPingu07/kakutou2k4-enhanced/releases).
+The release zip is laid out for a direct merge: extract it into your UT2004
+folder (the one that contains `System/`, `Sounds/` and `Help/`). The same
+archive works for clients and dedicated servers.
+
 ## What this fork adds
 
 - **Torso-only animation layering.** Punches, guard and ready poses play on
