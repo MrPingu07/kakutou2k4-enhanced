@@ -26,7 +26,7 @@ until they die.*/
 simulated function ModifyPlayer(Pawn Other)
 {
 	local Pawn OldPawn;
-	local Inventory Inv;
+	local Inventory Inv, NextInv;
 
     if ( !Other.IsA('K2k4xPawn') )
     {
@@ -44,19 +44,39 @@ simulated function ModifyPlayer(Pawn Other)
     if ( NextMutator != None )
         NextMutator.ModifyPlayer(Other);
 
+    if ( Other.Health <= 0 )
+        return;
+
+    // Kakutou owns inventory group 1, the ShieldGun slot. If another mutator
+    // granted a different weapon there (UT2341's Impact Hammer, for example),
+    // remove it so Unarmed stays permanent and selectable in that slot.
+    for ( Inv = Other.Inventory; Inv != None; Inv = NextInv )
+    {
+        NextInv = Inv.Inventory;
+        if ( (Weapon(Inv) != None) && (Inv.InventoryGroup == 1)
+            && !Inv.IsA('Unarmed') )
+        {
+            if ( Other.Weapon == Inv )
+                Other.Weapon = None;
+            if ( Other.PendingWeapon == Inv )
+                Other.PendingWeapon = None;
+            Inv.Destroy();
+        }
+    }
+
     // Guarantee the martial-arts weapon on every spawn and respawn. If the
     // pawn already has it, this check deliberately does nothing.
-    if ( (Other.Health > 0) && (Other.FindInventoryType(class'Unarmed') == None) )
+    if ( Other.FindInventoryType(class'Unarmed') == None )
     {
         Inv = Spawn(class'Unarmed', Other);
         if ( Inv != None )
-        {
             Inv.GiveTo(Other);
-            if ( (Other.FindInventoryType(class'Unarmed') != None)
-                && (Other.Controller != None) )
-                Other.Controller.ClientSetWeapon(class'Unarmed');
-        }
     }
+
+    // Unarmed replaces the ShieldGun, so spawn and respawn holding it.
+    if ( (Other.FindInventoryType(class'Unarmed') != None)
+        && (Other.Controller != None) )
+        Other.Controller.ClientSetWeapon(class'Unarmed');
 }
 
 /*A final footnote: Due to a bug in the Mutator class,

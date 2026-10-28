@@ -491,6 +491,17 @@ simulated function bool SpecialCalcView(out actor ViewActor, out vector CameraLo
 	return true;
 }
 
+// Kakutou owns the ShieldGun slot (inventory group 1). Some loadout mutators
+// (UT2341, for example) put their own melee weapon there by rewriting
+// RequiredEquipment during CheckReplacement. Force Unarmed back in after they
+// have had their turn and before any default inventory is created, so the two
+// weapons can never share the slot.
+simulated function AddDefaultInventory()
+{
+    RequiredEquipment[1] = string(class'Unarmed');
+    Super.AddDefaultInventory();
+}
+
 defaultproperties
 {
     RequiredEquipment(1)="Kakutou2k4.Unarmed"

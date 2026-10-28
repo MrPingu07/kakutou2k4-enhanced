@@ -328,6 +328,9 @@ defaultproperties
     SelectForce="ShieldGun_change"
     AIRating=0.39
     CurrentRating=0.39
+    // Keep Unarmed ahead of other weapons in inventory group 1 (the
+    // ShieldGun slot), even if another mutator or pickup adds one there.
+    Priority=50
     bMeleeWeapon=True
     bCanThrow=False
     PickupClass=Class'UnarmedPickup'

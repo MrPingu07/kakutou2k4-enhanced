@@ -67,7 +67,7 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
 simulated function ModifyPlayer(Pawn Other)
 {
 	local Pawn OldPawn;
-	local Inventory Inv;
+	local Inventory Inv, NextInv;
 
     if ( !Other.IsA('K2k4xPawn') )
     {
@@ -83,19 +83,38 @@ simulated function ModifyPlayer(Pawn Other)
     if ( NextMutator != None )
         NextMutator.ModifyPlayer(Other);
 
-    // Arena is unarmed-only, so make sure Unarmed is present even when a
-    // weapon/loadout mutator removed or replaced the default slot.
-    if ( (Other.Health > 0) && (Other.FindInventoryType(class'Unarmed') == None) )
+    if ( Other.Health <= 0 )
+        return;
+
+    // Arena is unarmed-only, so Unarmed owns inventory group 1. Remove any
+    // other weapon a loadout mutator placed in that slot.
+    for ( Inv = Other.Inventory; Inv != None; Inv = NextInv )
+    {
+        NextInv = Inv.Inventory;
+        if ( (Weapon(Inv) != None) && (Inv.InventoryGroup == 1)
+            && !Inv.IsA('Unarmed') )
+        {
+            if ( Other.Weapon == Inv )
+                Other.Weapon = None;
+            if ( Other.PendingWeapon == Inv )
+                Other.PendingWeapon = None;
+            Inv.Destroy();
+        }
+    }
+
+    // Make sure Unarmed is present even when a weapon/loadout mutator removed
+    // or replaced the default slot. Does nothing if it is already there.
+    if ( Other.FindInventoryType(class'Unarmed') == None )
     {
         Inv = Spawn(class'Unarmed', Other);
         if ( Inv != None )
-        {
             Inv.GiveTo(Other);
-            if ( (Other.FindInventoryType(class'Unarmed') != None)
-                && (Other.Controller != None) )
-                Other.Controller.ClientSetWeapon(class'Unarmed');
-        }
     }
+
+    // Spawn and respawn holding Unarmed.
+    if ( (Other.FindInventoryType(class'Unarmed') != None)
+        && (Other.Controller != None) )
+        Other.Controller.ClientSetWeapon(class'Unarmed');
 }
 
 function PlayerChangedClass(Controller aPlayer)
