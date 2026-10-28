@@ -41,6 +41,7 @@ var bool bK2k4UpperBusy;        // a one-shot upper-body animation is playing
 var bool bK2k4UpperActive;      // channel 1 is being driven by this pawn
 var bool bK2k4Kicking;          // a full-body kick currently owns channel 0
 var bool bK2k4AirFullBody;      // a fast air clip currently owns hips and up
+var bool bK2k4Emoting;          // an emote/taunt is playing; channel 1 is free
 var float K2k4KickTimeout;      // safety net if AnimEnd never arrives
 
 replication
@@ -328,6 +329,22 @@ simulated function K2k4UpdateUpperBody()
 		return;
 	}
 
+	// An emote/taunt owns the body: keep channel 1 free so stock can play it
+	// full-body or on channel 1 without the guard overlay fighting it. Once
+	// the emote stops animating, hand the torso back to the overlay.
+	if ( bK2k4Emoting )
+	{
+		if ( IsAnimating(0) || IsAnimating(1) )
+			return;	// emote still playing; channel 1 stays free
+		bK2k4Emoting = false;
+		bK2k4UpperActive = true;
+		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
+			K2k4LoopUpperIdle();
+		else
+			K2k4ResetUpperBody();
+		return;
+	}
+
 	// Safety net in case a kick's AnimEnd never fires.
 	if ( bK2k4Kicking && (Level.TimeSeconds > K2k4KickTimeout) )
 	{
@@ -404,7 +421,10 @@ simulated function AnimEnd(int Channel)
 //simulated event SetAnimAction(name NewAction)
 simulated function SetAnimAction(name NewAction)	//function seems to play smoother animation than event. Don't know why.
 {
+	local name EmoteSeq;
+
     AnimAction = NewAction;
+    bK2k4Emoting = false;	// any new action ends an emote's channel-1 exemption
 
     // A new action takes the torso back from a fast air clip.
     if (bK2k4AirFullBody)
@@ -456,7 +476,20 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
         return;
     }
 
-    // Some other action (weapon switch, taunt, ...): stock handles it. The
+    // Emotes / taunts: free channel 1 so stock can play the emote full-body
+    // or on channel 1 without the guard overlay fighting it. Stock's own
+    // SetAnimAction will re-enable channel 1 if it plays the emote there.
+    EmoteSeq = NewAction;
+    if ( FindValidTaunt( EmoteSeq ) )
+    {
+        bK2k4Emoting = true;
+        bK2k4UpperActive = false;
+        AnimBlendToAlpha(1, 0.0, 0.05);	// mute channel 1 for full-body emotes
+        super.SetAnimAction(NewAction);	// stock plays the emote
+        return;
+    }
+
+    // Some other action (weapon switch, ...): stock handles it. The
     // next Tick re-establishes the martial-arts upper body.
     super.SetAnimAction(NewAction);
 }
