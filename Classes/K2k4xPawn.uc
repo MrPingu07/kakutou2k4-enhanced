@@ -328,7 +328,7 @@ simulated function K2k4DebugAnim()
 	GetAnimParams(1, S1, F, R);
 	if ( (S0 != K2k4DbgSeq0) || (S1 != K2k4DbgSeq1) || (IdleWeaponAnim != K2k4DbgIdle) )
 	{
-		log("K2k4DBG t="$Level.TimeSeconds$" ch0="$S0$" ch1="$S1$" idle="$IdleWeaponAnim$" combat="$bK2k4Combat$" unarmed="$(Unarmed(Weapon) != None));
+		log("K2k4DBG t="$Level.TimeSeconds$" ch0="$S0$" ch1="$S1$" idle="$IdleWeaponAnim$" action="$AnimAction$" wait="$bWaitForAnim$" idleflag="$bIsIdle$" phys="$Physics$" combat="$bK2k4Combat$" unarmed="$(Unarmed(Weapon) != None));
 		K2k4DbgSeq0 = S0;
 		K2k4DbgSeq1 = S1;
 		K2k4DbgIdle = IdleWeaponAnim;
