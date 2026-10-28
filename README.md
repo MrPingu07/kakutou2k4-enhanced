@@ -48,6 +48,18 @@ archive works for clients and dedicated servers.
 
 See [ROADMAP.md](ROADMAP.md) for the current state and planned work.
 
+## Planned features
+
+- **Idle, walking and running animations.** Add dedicated martial-arts idle,
+  walking and running clips so the unarmed locomotion has its own personality
+  instead of reusing the stock character animations. These would play on
+  channel 0 (full body), alongside the existing channel-1 torso overlay.
+- **Borrowing stock animations.** It is technically possible to reference
+  stock UT2004 character animations (e.g. the default male/female anims
+  already present in the game packages) rather than authoring new ones. Any
+  borrowed animation must be cleared for redistribution and credited before it
+  ships in a release.
+
 ## Gameplay
 
 Players spawn with the `Unarmed` weapon instead of the ShieldGun, with
