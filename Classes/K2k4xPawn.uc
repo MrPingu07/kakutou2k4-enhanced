@@ -43,6 +43,10 @@ var bool bK2k4Kicking;          // a full-body kick currently owns channel 0
 var bool bK2k4AirFullBody;      // a fast air clip currently owns hips and up
 var bool bK2k4Emoting;          // an emote/taunt is playing; channel 1 is free
 var float K2k4KickTimeout;      // safety net if AnimEnd never arrives
+var bool bK2k4Combat;           // combat stance: ready pose on the torso
+var float K2k4CombatTime;       // last time a combat action ran
+var float K2k4CombatHold;       // seconds without combat before relaxing
+var float K2k4RelaxBlend;       // blend-out time for the return to relaxed
 
 replication
 {
@@ -93,7 +97,13 @@ simulated function Tick(float DeltaTime)
 			else if ( (pc.myHUD != None) && bGTA )
 				pc.myHUD.bCrosshairShow = pc.myHUD.default.bCrosshairShow;
 
-			if (Unarmed(Weapon).bFlagFighting && (IdleWeaponAnim!='FlagReady') )
+			// Arms down until a combat action has happened recently.
+			if ( !bK2k4Combat )
+			{
+				if (IdleWeaponAnim != IdleRestAnim)
+					IdleWeaponAnim = IdleRestAnim;
+			}
+			else if (Unarmed(Weapon).bFlagFighting && (IdleWeaponAnim!='FlagReady') )
 				IdleWeaponAnim='FlagReady';
 			else if (!Unarmed(Weapon).bFlagFighting && (IdleWeaponAnim!='Ready') )
 				IdleWeaponAnim='Ready';
@@ -121,6 +131,8 @@ simulated function Tick(float DeltaTime)
 
 simulated function name K2k4DesiredUpperIdle()
 {
+	if ( !bK2k4Combat )
+		return '';
 	if ( (Unarmed(Weapon) != None) && Unarmed(Weapon).bFlagFighting )
 		return 'FlagReady';
 	return 'Ready';
@@ -279,7 +291,17 @@ simulated function K2k4ResetUpperBody()
 	bK2k4Kicking = false;
 	bK2k4AirFullBody = false;
 	K2k4UpperIdle = '';
+	bK2k4Combat = false;
 	AnimBlendToAlpha(1, 0.0, 0.15);
+}
+
+// Arms down: channel 1 fades out slowly so the stock idle on channel 0 shows.
+simulated function K2k4RelaxUpperBody()
+{
+	bK2k4UpperActive = false;
+	bK2k4UpperBusy = false;
+	K2k4UpperIdle = '';
+	AnimBlendToAlpha(1, 0.0, K2k4RelaxBlend);
 }
 
 // Ends a fast air clip's full-body ownership and hands the torso back to
@@ -300,8 +322,14 @@ simulated function K2k4RestoreAirUpperBody()
 simulated function K2k4LoopUpperIdle()
 {
 	K2k4UpperIdle = K2k4DesiredUpperIdle();
+	if ( K2k4UpperIdle == '' )
+	{
+		K2k4RelaxUpperBody();
+		return;
+	}
 	bK2k4UpperBusy = false;
 	bK2k4UpperActive = true;
+	AnimBlendToAlpha(1, 1.0, 0.15);
 	AnimBlendParams(1, 1.0, 0.0, 0.15, FireRootBone);
 	LoopAnim(K2k4UpperIdle, 1.0, 0.15, 1);
 }
@@ -329,6 +357,16 @@ simulated function K2k4UpdateUpperBody()
 		return;
 	}
 
+	// Combat stance stays up while a combat action runs, then drops back to
+	// relaxed K2k4CombatHold seconds after the last one.
+	if ( bK2k4Combat )
+	{
+		if ( (bK2k4UpperBusy && IsAnimating(1)) || bK2k4Kicking || bK2k4Emoting )
+			K2k4CombatTime = Level.TimeSeconds;
+		else if ( Level.TimeSeconds - K2k4CombatTime > K2k4CombatHold )
+			bK2k4Combat = false;
+	}
+
 	// An emote/taunt owns the body: keep channel 1 free so stock can play it
 	// full-body or on channel 1 without the guard overlay fighting it. Once
 	// the emote stops animating, hand the torso back to the overlay.
@@ -337,11 +375,18 @@ simulated function K2k4UpdateUpperBody()
 		if ( IsAnimating(0) || IsAnimating(1) )
 			return;	// emote still playing; channel 1 stays free
 		bK2k4Emoting = false;
-		bK2k4UpperActive = true;
 		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
 			K2k4LoopUpperIdle();
 		else
 			K2k4ResetUpperBody();
+		return;
+	}
+
+	// Arms down until the next combat action.
+	if ( !bK2k4Combat )
+	{
+		if ( bK2k4UpperActive )
+			K2k4RelaxUpperBody();
 		return;
 	}
 
@@ -439,6 +484,18 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
         return;
     }
 
+    // The ready pose only shows while in combat stance.
+    if ( (NewAction == 'Ready') || (NewAction == 'FlagReady') )
+    {
+        if ( !bK2k4Combat )
+            return;
+    }
+    else if ( K2k4IsKickAction(NewAction) || K2k4IsUpperAction(NewAction) )
+    {
+        bK2k4Combat = true;
+        K2k4CombatTime = Level.TimeSeconds;
+    }
+
     // Kicks are full-body moves: play them on channel 0 and mute the
     // upper-body overlay for their duration.
     if (K2k4IsKickAction(NewAction))
@@ -460,6 +517,7 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
         bK2k4Kicking = false;
         bWaitForAnim = false;
         bK2k4UpperActive = true;
+        AnimBlendToAlpha(1, 1.0, 0.1);
         AnimBlendParams(1, 1.0, 0.0, 0.15, FireRootBone);
 
         if ( (NewAction == 'Ready') || (NewAction == 'FlagReady') )
@@ -540,4 +598,6 @@ defaultproperties
     RequiredEquipment(1)="Kakutou2k4-Enhanced.Unarmed"
     bSpecialCalcView=True
     bReplicateAnimations=True
+    K2k4CombatHold=2.0
+    K2k4RelaxBlend=1.0
 }
