@@ -163,7 +163,7 @@ simulated function bool K2k4RelaxOverlay()
 {
 	if ( bK2k4Emoting || bK2k4AirFullBody || bK2k4Kicking || bWaitForAnim )
 		return false;
-	return ( (Physics == PHYS_Walking) || (Physics == PHYS_Swimming) );
+	return ( (Physics == PHYS_Walking) || (Physics == PHYS_Swimming) || (Physics == PHYS_Falling) );
 }
 
 simulated function name K2k4DesiredUpperIdle()
