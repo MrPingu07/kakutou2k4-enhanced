@@ -157,10 +157,23 @@ simulated function name K2k4RelaxIdle()
 	return default.IdleRestAnim;
 }
 
+// Relaxed upper body over walking, running, turning, crouching and swimming.
+// Jumps, falls, dodges, emotes and kicks keep the stock or combat behaviour.
+simulated function bool K2k4RelaxOverlay()
+{
+	if ( bK2k4Emoting || bK2k4AirFullBody || bK2k4Kicking || bWaitForAnim )
+		return false;
+	return ( (Physics == PHYS_Walking) || (Physics == PHYS_Swimming) );
+}
+
 simulated function name K2k4DesiredUpperIdle()
 {
 	if ( !bK2k4Combat )
+	{
+		if ( K2k4RelaxOverlay() )
+			return K2k4RelaxIdle();
 		return '';
+	}
 	if ( (Unarmed(Weapon) != None) && Unarmed(Weapon).bFlagFighting )
 		return 'FlagReady';
 	return 'Ready';
@@ -348,7 +361,7 @@ simulated function K2k4UpdateArmDown(float DeltaTime)
 
 	Target = 0.0;
 	if ( (Health > 0) && (Unarmed(Weapon) != None) && (DrivenVehicle == None)
-		&& !bK2k4Combat && !bK2k4AirFullBody && !bK2k4Emoting )
+		&& !bK2k4Combat && K2k4RelaxOverlay() )
 		Target = 1.0;
 
 	if ( Target > K2k4ArmAlpha )
@@ -470,8 +483,9 @@ simulated function K2k4UpdateUpperBody()
 		return;
 	}
 
-	// Arms down until the next combat action.
-	if ( !bK2k4Combat )
+	// Arms down until the next combat action, except over locomotion where the
+	// relaxed base carries the upper body.
+	if ( !bK2k4Combat && !K2k4RelaxOverlay() )
 	{
 		if ( bK2k4UpperActive )
 			K2k4RelaxUpperBody();
