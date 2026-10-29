@@ -379,41 +379,6 @@ simulated function K2k4DebugAnim()
 	}
 }
 
-// Weapon changes: never let Kakutou animation overrides outlive the
-// martial-arts weapon.
-simulated function SwitchWeapon(byte F)
-{
-    if (Unarmed(Weapon) != None)
-    {
-        // Switching away: stop the stock idle from replaying 'Ready' on the
-        // new weapon, and abandon any in-progress kick/air animation.
-        IdleWeaponAnim = '';
-        bWaitForAnim = false;
-    }
-    Super.SwitchWeapon(F);
-}
-
-simulated function ServerChangedWeapon(Weapon OldWeapon, Weapon NewWeapon)
-{
-    bWaitForAnim = false;
-    Super.ServerChangedWeapon(OldWeapon, NewWeapon);
-
-    // Weapon is now NewWeapon. Release every Kakutou animation override the
-    // instant the martial-arts weapon is gone.
-    if (Unarmed(Weapon) == None)
-    {
-        bK2k4Combat = false;
-        bK2k4UpperActive = false;
-        bK2k4UpperBusy = false;
-        bK2k4Kicking = false;
-        bK2k4AirFullBody = false;
-        K2k4UpperIdle = '';
-        AnimBlendToAlpha(1, 0.0, 0.05);
-    }
-    else if (IdleWeaponAnim != 'Ready')
-        IdleWeaponAnim = 'Ready';
-}
-
 // Arms down: rotate the upper arms on top of the relaxed base pose. The offset
 // fades in while relaxed and out quickly when a combat action starts.
 simulated function K2k4UpdateArmDown(float DeltaTime)
