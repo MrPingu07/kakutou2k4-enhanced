@@ -243,23 +243,58 @@ sequence in a fixed order:
 Log sequence name, channel, requested rate, actual `GetAnimParams` rate, start
 time and `AnimEnd` time for each. That turns "it looked slow" into a table.
 
-## Suggested branch layout
+## Diagnostic build (implemented)
 
 Branch: `anim-replication-diagnostics`.
 
-Recommended additions, kept separate from gameplay changes:
+The test-only harness is now in place:
 
-- `docs/ANIMATION_TIMING.md` (this file);
-- a test-only mutator, e.g. `Classes/MutKakutouAnimLab.uc`, enabled with
-  `?mutator=Kakutou2k4-Enhanced.MutKakutouAnimLab`:
-  - `mutate k2lab kick <fast|strong>` - force one named attack;
-  - `mutate k2lab play <sequence> [rate] [channel]` - play one clip;
-  - `mutate k2lab sweep [arms|legs|all]` - the deterministic catalogue;
-  - `mutate k2lab repanim <0|1>` - flip `bReplicateAnimations` for A/B;
-  - `mutate k2lab dump` - log the loaded sequences and current `SimAnim`.
-- a `bK2k4DebugNetAnim` switch in `K2k4xPawn` for the per-frame log described
-  above;
-- no fix committed until one of the test outcomes above is observed.
+- `Classes/MutKakutouAnimLab.uc` - enable with
+  `?mutator=Kakutou2k4-Enhanced.MutKakutouAnimLab`.
+- `Classes/K2k4xPawn.uc` - adds `bK2k4DebugNetAnim` (replicated to clients)
+  and `K2k4LogNetAnim()`, called every 0.25 s and at action start/end.
+- `System/Kakutou2k4-Enhanced.u` / `.ucl` - rebuilt with the harness; the
+  mutator is exported in the cache.
+
+Console commands (from the **server** console or a client, via `mutate`):
+
+| Command | Purpose |
+|---|---|
+| `mutate k2lab kick fast` | Force `AttackFast3` through the normal kick path. |
+| `mutate k2lab kick strong` | Force `AttackStrong3`. |
+| `mutate k2lab play <seq> [rate] [channel]` | Play one sequence directly, bypassing attack selection. |
+| `mutate k2lab sweep arms` | Ready/guard and all arm attacks, fixed order. |
+| `mutate k2lab sweep legs` | All kick attacks, fixed order. |
+| `mutate k2lab sweep all` | Arms first, then legs. |
+| `mutate k2lab netlog on/off` | Toggle the `K2LABNET` per-pawn log on server and clients. |
+| `mutate k2lab repanim on/off` | A/B switch for `bReplicateAnimations`. |
+| `mutate k2lab dump` | Log current channel/`SimAnim` state and `HasAnim` for known sequences. |
+
+`K2LABNET` lines contain the timestamp, `Role`/`RemoteRole`, `bNetOwner`,
+physics, `AnimAction`, `bWaitForAnim`, kick/busy flags, both channels
+(sequence/frame/rate), and the raw `SimAnim` fields. `K2LAB` lines mark sweep
+steps, forced commands and `bReplicateAnimations` changes. All go to
+`UT2004.log` on the machine that runs the code, so server and client logs must
+be kept side by side.
+
+Recommended run order with this build:
+
+1. Standalone: `sweep all`, capture the client-side log. This is the local
+   control.
+2. Listen server: host runs `sweep all`, capture the host log; a second client
+   joins and repeats, capturing the client log.
+3. Compare the `K2LABNET` channel-0 `r0`/`SimAnim.AnimRate` and the
+   `ANIMEND`/`ACT-START` deltas. The kick should last roughly 0.33 s locally
+   (`AttackFast3`) / 0.67 s (`AttackStrong3`); if the client reports a much
+   smaller `r0` or a long frame delta while `SimAnim.AnimRate` differs from the
+   server, the replication hypothesis is confirmed.
+4. Run `repanim off`, repeat the forced kick on the remote client. If the kick
+   becomes normal but remote air clips stop working, the fix must preserve
+   channel-0 replication for the air moves.
+5. Run `sweep arms` and `sweep legs` on the same client. This is the original
+   catalogue idea, now used as confirmation after the path is known.
+
+No gameplay fix is committed until one of those outcomes is observed.
 
 ## Context for the next session
 
@@ -279,3 +314,8 @@ Recommended additions, kept separate from gameplay changes:
   channel-0 `SimAnim` replication path as the leading hypothesis. Recommended
   differential testing and instrumentation before the deterministic sequence
   catalogue.
+- 2026-10-31: Implemented `MutKakutouAnimLab` and the replicated
+  `bK2k4DebugNetAnim` logging. Package rebuilt with UCC under Wine:
+  `Success - 0 error(s), 1 warning(s)` (`MutKakutou2k4` class-name warning
+  only). No runtime test of the mutator commands has been performed yet; the
+  next step is to capture a standalone log, then a listen-server/client pair.

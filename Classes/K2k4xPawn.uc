@@ -56,14 +56,17 @@ var config rotator K2k4WristL;		// hand offset for the left wrist (Bip01 L Finge
 var config rotator K2k4WristR;		// hand offset for the right wrist (Bip01 R Hand, User.ini)
 var config float K2k4AirJumpBoostFraction;	// extra-jump speed nudge, fraction of GroundSpeed (User.ini)
 var config bool bK2k4DebugAnim;	// log channel/idle changes to UT2004.log (User.ini)
+var config bool bK2k4DebugNetAnim;	// log client/server animation state (User.ini)
 var name K2k4DbgSeq0, K2k4DbgSeq1, K2k4DbgIdle;
 var float K2k4ArmAlpha;			// how much of the arm-down offset is applied (0..1)
 var bool bK2k4ArmOn;			// the arm bones currently carry an offset
+var float K2k4NetDbgTime;		// next periodic network-animation log line
+var float K2k4ActionStart;		// Level.TimeSeconds when the last action began
 
 replication
 {
 	reliable if (bNetDirty && (Role==ROLE_AUTHORITY))
-        PrevAnimAction;
+        PrevAnimAction, bK2k4DebugNetAnim;
 }
 
 simulated function AssignInitialPose()
@@ -140,6 +143,11 @@ simulated function Tick(float DeltaTime)
 	K2k4UpdateArmDown(DeltaTime);
 	if ( bK2k4DebugAnim && (pc != None) )
 		K2k4DebugAnim();
+	if ( bK2k4DebugNetAnim && (Level.TimeSeconds >= K2k4NetDbgTime) )
+	{
+		K2k4LogNetAnim("TICK");
+		K2k4NetDbgTime = Level.TimeSeconds + 0.25;
+	}
 
 	PrevAnimAction = AnimAction;
 	super.Tick(DeltaTime);
@@ -379,6 +387,31 @@ simulated function K2k4DebugAnim()
 	}
 }
 
+// Network-animation diagnostics for the slow-kick investigation. Logs the
+// server and client view of the same pawn: the channels we drive ourselves and
+// the stock SimAnim record that carries channel 0 to remote proxies.
+simulated function K2k4LogNetAnim(string Tag)
+{
+	local name S0, S1;
+	local float F0, R0, F1, R1;
+
+	GetAnimParams(0, S0, F0, R0);
+	GetAnimParams(1, S1, F1, R1);
+	log("K2LABNET tag="$Tag
+		$" t="$Level.TimeSeconds
+		$" role="$Role$" remote="$RemoteRole$" owner="$bNetOwner
+		$" phys="$Physics
+		$" action="$AnimAction$" wait="$bWaitForAnim
+		$" kick="$bK2k4Kicking$" busy="$bK2k4UpperBusy
+		$" ch0="$S0$" f0="$F0$" r0="$R0
+		$" ch1="$S1$" f1="$F1$" r1="$R1
+		$" sim="$SimAnim.AnimSequence
+		$" srate="$SimAnim.AnimRate
+		$" sframe="$SimAnim.AnimFrame
+		$" stween="$SimAnim.TweenRate
+		$" sloop="$SimAnim.bAnimLoop);
+}
+
 // Arms down: rotate the upper arms on top of the relaxed base pose. The offset
 // fades in while relaxed and out quickly when a combat action starts.
 simulated function K2k4UpdateArmDown(float DeltaTime)
@@ -546,6 +579,9 @@ simulated function K2k4UpdateUpperBody()
 
 simulated function AnimEnd(int Channel)
 {
+	if ( bK2k4DebugNetAnim )
+		K2k4LogNetAnim("ANIMEND ch="$Channel$" dt="$(Level.TimeSeconds - K2k4ActionStart));
+
 	// Fast air clip just finished: the hips-up ownership ends here.
 	if ( bK2k4AirFullBody && (Channel == 0) )
 	{
@@ -596,8 +632,11 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
 {
 	local name EmoteSeq;
 
+    K2k4ActionStart = Level.TimeSeconds;
     AnimAction = NewAction;
     bK2k4Emoting = false;	// any new action ends an emote's channel-1 exemption
+    if ( bK2k4DebugNetAnim )
+        K2k4LogNetAnim("ACT-START "$NewAction);
 
     // A new action takes the torso back from a fast air clip.
     if (bK2k4AirFullBody)
@@ -635,6 +674,8 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
         AnimBlendToAlpha(1, 0.0, 0.05);
         PlayAnim(NewAction, 1.0, 0.1, 0);
         bWaitForAnim = true;		//Animate the entire body for kick attacks
+        if ( bK2k4DebugNetAnim )
+            K2k4LogNetAnim("ACT-KICK "$NewAction);
         return;
     }
 
@@ -659,6 +700,8 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
             bK2k4UpperBusy = true;
             PlayAnim(NewAction, 1.0, 0.1, 1);
         }
+        if ( bK2k4DebugNetAnim )
+            K2k4LogNetAnim("ACT-UPPER "$NewAction);
         return;
     }
 
