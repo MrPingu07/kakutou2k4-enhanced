@@ -1,5 +1,12 @@
 # Kakutou2k4 Enhanced — Roadmap
 
+## Known issue: slow leg animations on clients
+
+Full-body kicks (`AttackFast3/4`, `AttackStrong3/4`) play very slowly for
+remote clients while arm-only attacks look normal. The investigation, evidence
+and recommended differential test plan are in
+[docs/ANIMATION_TIMING.md](docs/ANIMATION_TIMING.md). No fix is committed yet.
+
 ## Air-jump animation override
 
 Implemented in `Classes/K2k4xPawn.uc`:

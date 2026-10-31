@@ -47,6 +47,8 @@ archive works for clients and dedicated servers.
   `Unarmed` alone on the next respawn.
 
 See [ROADMAP.md](ROADMAP.md) for the current state and planned work.
+See [docs/ANIMATION_TIMING.md](docs/ANIMATION_TIMING.md) for the open
+investigation into slow leg animations on remote clients.
 
 ## Planned features
 
