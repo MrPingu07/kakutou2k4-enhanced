@@ -30,6 +30,11 @@ var bool bSweeping;
 var K2k4xPawn SweepPawn;
 var string SweepName;
 
+// Persisted animation-debug settings. Re-applied to every pawn on a timer so
+// they survive respawns (new pawns default to debug off).
+var bool bK2LabNetLog;
+var bool bK2LabReplAnim;
+
 function Mutate(string MutateString, PlayerController Sender)
 {
 	local array<string> P;
@@ -39,6 +44,9 @@ function Mutate(string MutateString, PlayerController Sender)
 	local int Channel, i;
 	local bool bOn;
 	local string StateStr;
+	local Controller C;
+	local Pawn PawnToKill;
+	local int NobotsCount;
 
 	Split(MutateString, " ", P);
 
@@ -55,7 +63,7 @@ function Mutate(string MutateString, PlayerController Sender)
 
 	if ( P[1] ~= "help" )
 	{
-		Sender.ClientMessage("k2lab kick <fast|strong> | play <seq> [rate] [channel] | sweep <arms|legs|all> | netlog <on|off> | repanim <on|off> | dump");
+		Sender.ClientMessage("k2lab kick <fast|strong> | play <seq> [rate] [channel] | sweep <arms|legs|all> | netlog <on|off> | repanim <on|off> | nobots | dump");
 		return;
 	}
 
@@ -71,6 +79,29 @@ function Mutate(string MutateString, PlayerController Sender)
 		else
 			K.SetAnimAction('AttackFast3');
 		K.K2k4LogNetAnim("LAB-KICK");
+		return;
+	}
+
+	if ( P[1] ~= "nobots" )
+	{
+		NobotsCount = 0;
+		foreach AllActors(class'Controller', C)
+		{
+			if ( (Bot(C) != None) && !C.bIsPlayer )
+			{
+				PawnToKill = C.Pawn;
+				if ( PawnToKill != None )
+					PawnToKill.Destroy();
+				C.Destroy();
+				NobotsCount++;
+			}
+		}
+		// Ask the game to stop spawning more bots this match.
+		if ( Level.Game != None )
+			Level.Game.NumBots = 0;
+
+		Sender.ClientMessage("k2lab: removed " $ NobotsCount $ " bots");
+		log("K2LAB nobots removed " $ NobotsCount);
 		return;
 	}
 
@@ -126,8 +157,10 @@ function Mutate(string MutateString, PlayerController Sender)
 		bOn = true;
 		if ( (P.Length >= 3) && ((P[2] ~= "off") || (P[2] ~= "0")) )
 			bOn = false;
+		bK2LabNetLog = bOn;
 		foreach AllActors(class'K2k4xPawn', K)
 			K.bK2k4DebugNetAnim = bOn;
+		UpdatePersistTimer();
 		StateStr = "off";
 		if ( bOn )
 			StateStr = "on";
@@ -141,8 +174,10 @@ function Mutate(string MutateString, PlayerController Sender)
 		bOn = true;
 		if ( (P.Length >= 3) && ((P[2] ~= "off") || (P[2] ~= "0")) )
 			bOn = false;
+		bK2LabReplAnim = bOn;
 		foreach AllActors(class'K2k4xPawn', K)
 			K.bReplicateAnimations = bOn;
+		UpdatePersistTimer();
 		StateStr = "off";
 		if ( bOn )
 			StateStr = "on";
@@ -256,10 +291,6 @@ function StartSweep(K2k4xPawn K, array<string> P, PlayerController Sender)
 		AddSweepAnim('AttackStrong4');
 		AddSweepAnim('AttackStrong3Rush');
 		AddSweepAnim('AttackStrong4Rush');
-		AddSweepAnim('FlagFast3');
-		AddSweepAnim('FlagFast4');
-		AddSweepAnim('FlagStrong3');
-		AddSweepAnim('FlagStrong4');
 	}
 
 	if ( SweepAnims.Length == 0 )
@@ -301,15 +332,47 @@ function SweepStep()
 
 function Timer()
 {
-	SweepStep();
+	if ( bSweeping )
+	{
+		SweepStep();
+		return;
+	}
+	// Re-apply persisted netlog/replanim settings so they survive respawns.
+	ApplyPersistedAnimSettings();
 }
 
 function StopSweep()
 {
 	bSweeping = false;
-	SetTimer(0.0, false);
+	UpdatePersistTimer();
 	log("K2LAB sweep done "$SweepName);
 	SweepPawn = None;
+}
+
+// Apply the persisted netlog/replanim flags to every pawn, catching any that
+// were spawned after the command was issued (e.g. after a respawn).
+function ApplyPersistedAnimSettings()
+{
+	local K2k4xPawn K;
+
+	foreach AllActors(class'K2k4xPawn', K)
+	{
+		if ( K.bK2k4DebugNetAnim != bK2LabNetLog )
+			K.bK2k4DebugNetAnim = bK2LabNetLog;
+		if ( K.bReplicateAnimations != bK2LabReplAnim )
+			K.bReplicateAnimations = bK2LabReplAnim;
+	}
+}
+
+// Start or stop the persistence timer based on whether any persisted setting
+// is active. The sweep uses its own 1.5 s timer; this is only for idle
+// re-application between sweeps.
+function UpdatePersistTimer()
+{
+	if ( bK2LabNetLog || bK2LabReplAnim )
+		SetTimer(1.0, true);
+	else if ( !bSweeping )
+		SetTimer(0.0, false);
 }
 
 defaultproperties

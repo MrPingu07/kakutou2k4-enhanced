@@ -39,7 +39,7 @@ var name PrevAnimAction;
 var name K2k4UpperIdle;         // current upper-body idle loop
 var bool bK2k4UpperBusy;        // a one-shot upper-body animation is playing
 var bool bK2k4UpperActive;      // channel 1 is being driven by this pawn
-var bool bK2k4Kicking;          // a full-body kick currently owns channel 0
+var bool bK2k4Kicking;          // a full-body kick currently owns channel 1
 var bool bK2k4AirFullBody;      // a fast air clip currently owns hips and up
 var bool bK2k4Emoting;          // an emote/taunt is playing; channel 1 is free
 var float K2k4KickTimeout;      // safety net if AnimEnd never arrives
@@ -112,10 +112,13 @@ simulated function Tick(float DeltaTime)
 			else if ( (pc.myHUD != None) && bGTA )
 				pc.myHUD.bCrosshairShow = pc.myHUD.default.bCrosshairShow;
 
-			// Arms down until a combat action has happened recently.
-			// The engine's own standing idle plays IdleRestAnim, so it follows too.
-			if (IdleRestAnim != K2k4RelaxIdle())
-				IdleRestAnim = K2k4RelaxIdle();
+			// Arms down until a combat action has happened recently. The
+			// relaxed upper-body pose lives on channel 1; channel 0 must
+			// keep the stock looping rest idle. Ready is a short torso
+			// pose, so using it as IdleRestAnim freezes the legs and makes
+			// the engine cancel channel-0 clips (kicks) every idle retry.
+			if (IdleRestAnim != default.IdleRestAnim)
+				IdleRestAnim = default.IdleRestAnim;
 			if ( !bK2k4Combat )
 			{
 				if (IdleWeaponAnim != K2k4RelaxIdle())
@@ -599,6 +602,20 @@ simulated function AnimEnd(int Channel)
 		return;
 	}
 
+	// A global-pose kick on channel 1 just finished: clear the kick state
+	// and return the torso to the spine-rooted upper-body idle blend.
+	if ( (Channel == 1) && bK2k4Kicking )
+	{
+		bK2k4Kicking = false;
+		bWaitForAnim = false;
+		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
+			K2k4LoopUpperIdle();
+		else
+			K2k4ResetUpperBody();
+		super.AnimEnd(Channel);
+		return;
+	}
+
 	if ( (Channel == 1) && bK2k4UpperActive )
 	{
 		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
@@ -610,16 +627,6 @@ simulated function AnimEnd(int Channel)
 		}
 		// Weapon changed / died mid-animation: release the channel.
 		K2k4ResetUpperBody();
-	}
-
-	if ( (Channel == 0) && bK2k4Kicking )
-	{
-		bK2k4Kicking = false;
-		bWaitForAnim = false;
-		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
-			K2k4LoopUpperIdle();
-		else
-			K2k4ResetUpperBody();
 	}
 
 	super.AnimEnd(Channel);
@@ -663,16 +670,20 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
         K2k4CombatTime = Level.TimeSeconds;
     }
 
-    // Kicks are full-body moves: play them on channel 0 and mute the
-    // upper-body overlay for their duration.
+    // Kicks are full-body moves, but they must not own channel 0: the
+    // engine's locomotion code plays idle, turn-in-place and fall clips on
+    // channel 0 and calls AnimEnd(0) when they finish, which cancels a kick
+    // mid-swing. Instead play the kick as a global pose on channel 1 so it
+    // still animates the legs, while channel 0 keeps running underneath.
     if (K2k4IsKickAction(NewAction))
     {
         bK2k4Kicking = true;
         bK2k4UpperBusy = false;
         bK2k4UpperActive = true;
         K2k4KickTimeout = Level.TimeSeconds + 2.0;
-        AnimBlendToAlpha(1, 0.0, 0.05);
-        PlayAnim(NewAction, 1.0, 0.1, 0);
+        AnimBlendToAlpha(1, 1.0, 0.05);
+        AnimBlendParams(1, 1.0, 0.0, 0.05, '', true);
+        PlayAnim(NewAction, 1.0, 0.1, 1);
         bWaitForAnim = true;		//Animate the entire body for kick attacks
         if ( bK2k4DebugNetAnim )
             K2k4LogNetAnim("ACT-KICK "$NewAction);
