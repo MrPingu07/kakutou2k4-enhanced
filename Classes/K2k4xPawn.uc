@@ -286,22 +286,26 @@ simulated function bool K2k4PlayAirAnim(name Anim)
 	if ( (Anim == '') || !HasAnim(Anim) )
 		return false;
 
-	if ( PlayAnim(Anim, 1.0, 0.1, 0) )
+	// Air clips are full-body, but they must not own channel 0: the engine's
+	// native locomotion/fall code writes channel 0 and calls AnimEnd(0) when
+	// it finishes, which restarts and freezes the clip on remote clients.
+	// Play it as a global pose on channel 1 instead, so it still moves the
+	// whole skeleton while channel 0 runs its own fall/idle animation.
+	AnimBlendToAlpha(1, 1.0, 0.05);
+	AnimBlendParams(1, 1.0, 0.0, 0.05, '', true);
+	if ( !PlayAnim(Anim, 1.0, 0.1, 1) )
 	{
-		AnimAction = Anim;
-		bWaitForAnim = true;	// hold the one-shot air animation
-
-		// Fast air moves are full-body: they own the hips and everything
-		// above for the duration of the clip. The guard overlay comes back
-		// when the clip ends or the pawn lands.
-		bK2k4AirFullBody = true;
-		bK2k4Kicking = false;
-		bK2k4UpperBusy = false;
-		AnimBlendToAlpha(1, 0.0, 0.1);
-		return true;
+		// Keep the channel in its normal spine-rooted state if playback fails.
+		AnimBlendParams(1, 1.0, 0.0, 0.15, FireRootBone, false);
+		return false;
 	}
 
-	return false;
+	AnimAction = Anim;
+	bWaitForAnim = false;	// let stock channel 0 keep running underneath
+	bK2k4AirFullBody = true;
+	bK2k4Kicking = false;
+	bK2k4UpperBusy = false;
+	return true;
 }
 
 // First jump: use the stock double-jump clip instead of the usual takeoff.
@@ -585,19 +589,19 @@ simulated function AnimEnd(int Channel)
 	if ( bK2k4DebugNetAnim )
 		K2k4LogNetAnim("ANIMEND ch="$Channel$" dt="$(Level.TimeSeconds - K2k4ActionStart));
 
-	// Fast air clip just finished: the hips-up ownership ends here.
-	if ( bK2k4AirFullBody && (Channel == 0) )
+	// Fast air clip just finished on channel 1: the hips-up ownership ends
+	// here. Channel 0 (native fall/idle/locomotion) is left alone.
+	if ( bK2k4AirFullBody && (Channel == 1) )
 	{
 		K2k4RestoreAirUpperBody();
 		super.AnimEnd(Channel);
 		return;
 	}
 
-	// A one-shot punch/guard overlay finished while the air clip owns the
-	// torso. Do not let it re-enable channel 1 mid-air.
-	if ( bK2k4AirFullBody && (Channel == 1) )
+	// While the air clip owns the body, channel-0 native clips finish
+	// underneath. Do not let AnimEnd(0) hand the torso back mid-air.
+	if ( bK2k4AirFullBody && (Channel == 0) )
 	{
-		bK2k4UpperBusy = false;
 		super.AnimEnd(Channel);
 		return;
 	}

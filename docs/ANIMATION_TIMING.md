@@ -254,6 +254,59 @@ end ownership in `AnimEnd(1)` / on landing.**
 
 Next step: apply that to `K2k4PlayAirAnim()` and verify on a remote client.
 
+## Air fix (implemented, log-confirmed on a remote client)
+
+`Classes/K2k4xPawn.uc`:
+
+1. **`K2k4PlayAirAnim()` plays on channel 1 as a global pose.**
+   - `AnimBlendToAlpha(1, 1.0, 0.05)` and
+     `AnimBlendParams(1, 1.0, 0.0, 0.05, '', true)` — same shape as kicks.
+   - `PlayAnim(Anim, 1.0, 0.1, 1)` — channel 1, not 0.
+   - `bWaitForAnim = false` so the engine keeps running channel 0 underneath.
+   - If `PlayAnim` fails, channel 1 is returned to its normal spine-rooted
+     blend (`bGlobalPose=false`) instead of being left as a global pose.
+2. **`AnimEnd(1)` ends air ownership.** A `Channel == 1 && bK2k4AirFullBody`
+   branch calls `K2k4RestoreAirUpperBody()`. `Channel == 0` is deliberately
+   ignored while the air clip owns the body, so native fall/idle finishes do
+   not hand the torso back mid-air. Landing (Tick) still restores it too.
+
+Client netlog after the fix (own pawn, `role=3 owner=True`):
+
+```
+t=28.70  action=DodgeF      ch0=JumpF_Takeoff  ch1=DodgeF f1=0.15 r1=2.31
+t=28.96  action=DodgeF      ch0=JumpF_Mid      ch1=DodgeF f1=0.76 r1=2.31
+t=29.04  ANIMEND ch=1 dt=3.82  ch1=DodgeF f1=0.92 r1=0.00    (completed)
+
+t=37.29  action=DoubleJumpF ch0=JumpL_Takeoff  ch1=DoubleJumpF f1=0.28 r1=2.00
+t=37.55  action=DoubleJumpF ch0=JumpF_Mid      ch1=DoubleJumpF f1=0.79 r1=2.00
+t=37.60  ANIMEND ch=1 dt=4.52  ch1=DoubleJumpF f1=0.90      (completed)
+```
+
+The air clip advances smoothly and reaches its end on channel 1, while
+channel 0 runs the stock takeoff/mid/landing clips the whole time. This is
+the same success shape as the confirmed kick fix. Pending: the client's
+visual confirmation and a final commit.
+
+### Known edge case (by design, user-confirmed non-harmful)
+
+`K2k4CanOverrideAirAnim()` only returns true when the pawn is Unarmed **and**
+horizontal speed is at least `default.GroundSpeed`. A double-jump performed
+from standstill or below running speed therefore falls back to
+`Super.PlayDoubleJump()` and plays the stock `DoubleJump*` animation instead
+of the martial-arts `Dodge*` clip. This is intentional (the dodge clips are
+meant for fast air moves), and the client reported it as a non-harmful edge
+case after the fix. If it is ever changed, relax the speed term in that gate
+rather than touching the channel-1 playback path.
+
+### Note on `bReplicateAnimations`
+
+The remote-host `RunF`/`JumpL_Mid` alternation may still be visible for
+*other* players because `bReplicateAnimations=True` keeps `SimAnim` writing
+channel 0 on proxies. That is a separate, viewer-side issue and is not
+required for the local player's air animations to work. If it still shows up
+after the air fix, consider setting `bReplicateAnimations=False` (stock) in a
+follow-up; do not mix it into this change.
+
 ## Asset facts (PSA metadata)
 
 The PSA files were parsed directly. All attack sequences in the Unarmed sets
@@ -391,3 +444,11 @@ runs the code, so server and client logs must be kept side by side.
   `K2k4PlayAirAnim()` on channel 1 with `bGlobalPose`, leave channel 0 to the
   engine, end ownership in `AnimEnd(1)` or on landing. Verify on a remote
   client before committing.
+- 2026-11-01: Air fix implemented and built (0 errors, 1 pre-existing warning).
+  Remote-client netlog confirms `DodgeF`/`DoubleJumpF` now advance smoothly on
+  channel 1 and complete (`ANIMEND ch=1`, `f1=0.90..0.92`, `r1=0.00`), while
+  channel 0 runs stock takeoff/mid/land clips underneath.
+- 2026-11-01: **Remote client confirmed the air fix visually:** "ANIMATIONS ON
+  THE CLIENT WORK FLAWLESSLY NOW". Only remaining report is the by-design
+  slow-double-jump fallback to stock `DoubleJump*` (the speed gate in
+  `K2k4CanOverrideAirAnim()`), classified as non-harmful and documented above.
