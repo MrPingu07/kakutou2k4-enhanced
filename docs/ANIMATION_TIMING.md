@@ -287,16 +287,19 @@ channel 0 runs the stock takeoff/mid/landing clips the whole time. This is
 the same success shape as the confirmed kick fix. Pending: the client's
 visual confirmation and a final commit.
 
-### Known edge case (by design, user-confirmed non-harmful)
+### Slow double-jumps (fixed)
 
-`K2k4CanOverrideAirAnim()` only returns true when the pawn is Unarmed **and**
-horizontal speed is at least `default.GroundSpeed`. A double-jump performed
-from standstill or below running speed therefore falls back to
-`Super.PlayDoubleJump()` and plays the stock `DoubleJump*` animation instead
-of the martial-arts `Dodge*` clip. This is intentional (the dodge clips are
-meant for fast air moves), and the client reported it as a non-harmful edge
-case after the fix. If it is ever changed, relax the speed term in that gate
-rather than touching the channel-1 playback path.
+`K2k4CanOverrideAirAnim()` originally required Unarmed **and** horizontal
+speed at least `default.GroundSpeed`. A double-jump from standstill or below
+running speed therefore fell back to `Super.PlayDoubleJump()` and played the
+stock `DoubleJump*` animation instead of the martial-arts `Dodge*` clip.
+
+Fix: `K2k4CanOverrideAirAnim(optional bool bAllowSlow)` and
+`K2k4PlayAirAnim(name, optional bool bAllowSlow)` now accept a `bAllowSlow`
+flag. `PlayDoubleJump()` passes `true`, so any Unarmed double-jump plays the
+direction-relative dodge clip. First-jump takeoffs still call the gate without
+the flag, so they keep the speed requirement and their stock takeoff
+behaviour. Non-Unarmed pawns still fall back to stock.
 
 ### Note on `bReplicateAnimations`
 
@@ -451,4 +454,10 @@ runs the code, so server and client logs must be kept side by side.
 - 2026-11-01: **Remote client confirmed the air fix visually:** "ANIMATIONS ON
   THE CLIENT WORK FLAWLESSLY NOW". Only remaining report is the by-design
   slow-double-jump fallback to stock `DoubleJump*` (the speed gate in
-  `K2k4CanOverrideAirAnim()`), classified as non-harmful and documented above.
+  `K2k4CanOverrideAirAnim()`).
+- 2026-11-01: Slow double-jumps fixed on request. Added an optional
+  `bAllowSlow` argument to `K2k4CanOverrideAirAnim()`/`K2k4PlayAirAnim()`;
+  `PlayDoubleJump()` passes it so every Unarmed double-jump uses the
+  direction-relative dodge clip. First jumps keep the speed gate.
+- 2026-11-01: **Remote client confirmed the slow-double-jump fix:** "it works
+  PERFECT now." Both client-side animation fixes are verified and released.

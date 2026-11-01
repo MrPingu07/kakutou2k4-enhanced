@@ -263,24 +263,29 @@ simulated function int K2k4GetAirDirection()
 	return 2;
 }
 
-// The jump/dodge override only applies to the martial-arts style: unarmed
-// and travelling at (or above) the class's default running speed. Slower
-// jumps, and every other weapon, keep the stock animations.
-simulated function bool K2k4CanOverrideAirAnim()
+// The jump/dodge override only applies to the martial-arts style: unarmed.
+// Takeoffs additionally require travelling at (or above) the class's default
+// running speed; slower takeoffs and every other weapon keep the stock
+// animations. Double-jumps pass bAllowSlow so the directional dodge clip
+// still plays when the pawn has not reached running speed yet.
+simulated function bool K2k4CanOverrideAirAnim(optional bool bAllowSlow)
 {
 	local vector FlatVel;
 
 	if ( Unarmed(Weapon) == None )
 		return false;
 
+	if ( bAllowSlow )
+		return true;
+
 	FlatVel = Velocity;
 	FlatVel.Z = 0.0;
 	return (VSize(FlatVel) >= default.GroundSpeed);
 }
 
-simulated function bool K2k4PlayAirAnim(name Anim)
+simulated function bool K2k4PlayAirAnim(name Anim, optional bool bAllowSlow)
 {
-	if ( !K2k4CanOverrideAirAnim() )
+	if ( !K2k4CanOverrideAirAnim(bAllowSlow) )
 		return false;
 
 	if ( (Anim == '') || !HasAnim(Anim) )
@@ -357,10 +362,12 @@ simulated function K2k4AirJumpBoost()
 // with the dodge matching the body-relative movement direction.
 simulated function PlayDoubleJump()
 {
-	if ( !K2k4PlayAirAnim(DodgeAnims[K2k4GetAirDirection()]) )
+	// Double-jumps always use the directional dodge clip when unarmed, even
+	// below running speed (a slow hop still reads as a dodge).
+	if ( !K2k4PlayAirAnim(DodgeAnims[K2k4GetAirDirection()], true) )
 	{
-		// Gate failed (slow jump, or not unarmed): give the torso back to
-		// the guard overlay before the stock double-jump clip plays.
+		// Gate failed (not unarmed): give the torso back to the guard overlay
+		// before the stock double-jump clip plays.
 		K2k4RestoreAirUpperBody();
 		Super.PlayDoubleJump();
 	}

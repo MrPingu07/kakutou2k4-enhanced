@@ -1,11 +1,13 @@
 # Kakutou2k4 Enhanced — Roadmap
 
-## Known issue: slow leg animations on clients
+## Fixed: slow leg / air animations on clients
 
-Full-body kicks (`AttackFast3/4`, `AttackStrong3/4`) play very slowly for
-remote clients while arm-only attacks look normal. The investigation, evidence
-and recommended differential test plan are in
-[docs/ANIMATION_TIMING.md](docs/ANIMATION_TIMING.md). No fix is committed yet.
+Full-body kicks used to play very slowly for remote clients while arm-only
+attacks looked normal. The same channel-0 ownership conflict later showed up
+on jump, dodge and fall clips. Fixed by playing every full-body mod clip as a
+global pose on channel 1 and leaving channel 0 to the engine. The
+investigation, evidence and fix are in
+[docs/ANIMATION_TIMING.md](docs/ANIMATION_TIMING.md).
 
 ## Air-jump animation override
 
@@ -15,9 +17,9 @@ Implemented in `Classes/K2k4xPawn.uc`:
 - Every extra jump before landing plays `DodgeAnims[dir]`.
 - `dir` comes from `K2k4GetAirDirection()`, which projects `Velocity` onto the
   pawn's own facing (0 = F, 1 = B, 2 = L, 3 = R).
-- Clips play on channel 0.
-- Overrides are gated (see below); without the gate the stock jump animations
-  play and the torso overlay is untouched.
+- Clips play as a global pose on channel 1; channel 0 keeps running the stock
+  fall/idle/locomotion animation underneath.
+- First-jump overrides are gated; extra jumps are not (see below).
 
 Checklist:
 
@@ -26,17 +28,21 @@ Checklist:
   - Every other weapon, bots included, keeps the stock jump and double-jump
     animations.
 
-- [x] **Require running speed.**
-  - The same helper compares the 2D (horizontal) velocity against
+- [x] **Require running speed for the first jump.**
+  - The helper compares the 2D (horizontal) velocity against
     `default.GroundSpeed` (the class default, ignoring temporary
     leap/boost modifiers).
-  - Below that threshold the stock jump animation plays.
+  - Below that threshold the stock first-jump animation plays.
+
+- [x] **Always play the dodge clip on extra jumps.**
+  - `PlayDoubleJump()` calls `K2k4PlayAirAnim(..., true)`, bypassing the speed
+    term. A slow hop still reads as a direction-relative dodge while Unarmed.
 
 - [x] **Let the air clip own hips and up when the gate passes.**
-  - On clip start, `bK2k4AirFullBody` is set and channel 1 is blended out
-    (`AnimBlendToAlpha(1, 0.0, 0.1)`), so the double-jump/dodge drives the
-    whole body.
-  - The guard/idle upper-body loop is restored when the channel-0 clip ends
-    (`AnimEnd`), when the pawn lands or leaves `PHYS_Falling` (`Tick`), or when
-    another action takes the torso back (`SetAnimAction`).
+  - On clip start, `bK2k4AirFullBody` is set and channel 1 becomes a global
+    pose (`AnimBlendParams(..., true)`), so the double-jump/dodge drives the
+    whole body while channel 0 runs underneath.
+  - The guard/idle upper-body loop is restored when the channel-1 clip ends
+    (`AnimEnd(1)`), when the pawn lands or leaves `PHYS_Falling` (`Tick`), or
+    when another action takes the torso back (`SetAnimAction`).
   - Normal jumps and locomotion keep the existing torso lock.

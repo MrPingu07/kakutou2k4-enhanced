@@ -21,12 +21,14 @@ archive works for clients and dedicated servers.
 - **Air-jump animation remap.** The first jump plays a double-jump clip; every
   extra jump before landing plays a dodge clip chosen from the body-relative
   movement direction (forward/back/left/right).
-- **Gameplay gates.** The remap only runs while `Unarmed` is equipped and the
-  pawn is moving at or above its default running speed. Slower jumps and other
-  weapons keep the stock animations.
-- **Full-body air moves.** When the gate passes, the air clip temporarily owns
-  hips and up; the guard overlay is restored when the clip ends, the pawn
-  lands, or another action takes over.
+- **Gameplay gates.** The first-jump remap only runs while `Unarmed` is
+  equipped and the pawn is moving at or above its default running speed.
+  Extra (mid-air) jumps always play the dodge clip while `Unarmed`, even below
+  running speed. Other weapons keep the stock animations.
+- **Full-body air moves on their own channel.** Air clips play as a global
+  pose on animation channel 1, so the engine keeps running channel-0
+  locomotion, fall and landing clips underneath. This fixes the client-side
+  freezes that affected jumps, dodges, falls and kicks.
 - **Third-person camera awareness.** When `GTAThirdPerson` is installed, its
   `GTAPlayerController` owns the view and Kakutou defers to it. The camera mod
   is not bundled here.
@@ -47,8 +49,8 @@ archive works for clients and dedicated servers.
   `Unarmed` alone on the next respawn.
 
 See [ROADMAP.md](ROADMAP.md) for the current state and planned work.
-See [docs/ANIMATION_TIMING.md](docs/ANIMATION_TIMING.md) for the open
-investigation into slow leg animations on remote clients.
+See [docs/ANIMATION_TIMING.md](docs/ANIMATION_TIMING.md) for the client
+animation timing notes and the channel-0/channel-1 fix.
 
 ## Planned features
 
