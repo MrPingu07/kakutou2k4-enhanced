@@ -24,7 +24,8 @@ archive works for clients and dedicated servers.
 - **Gameplay gates.** The first-jump remap only runs while `Unarmed` is
   equipped and the pawn is moving at or above its default running speed.
   Extra (mid-air) jumps always play the dodge clip while `Unarmed`, even below
-  running speed. Other weapons keep the stock animations.
+  running speed. The extra-jump speed boost is likewise `Unarmed`-only; other
+  weapons keep the stock animations and jump behaviour.
 - **Full-body air moves on their own channel.** Air clips play as a global
   pose on animation channel 1, so the engine keeps running channel-0
   locomotion, fall and landing clips underneath. This fixes the client-side

@@ -405,9 +405,14 @@ function bool DoJump(bool bUpdating)
 // Each extra (mid-air) jump nudges the pawn forward by a small fraction of its
 // current ground speed, along its horizontal travel (or facing if standing
 // still). It is an impulse only: no timer, nothing held after the jump.
+// The boost is part of the martial-arts style, so it only applies while
+// Unarmed is equipped; any other weapon keeps the stock air jump.
 simulated function K2k4AirJumpBoost()
 {
 	local vector Dir;
+
+	if ( !K2k4IsUnarmed() )
+		return;
 
 	if ( K2k4AirJumpBoostFraction <= 0.0 )
 		return;
