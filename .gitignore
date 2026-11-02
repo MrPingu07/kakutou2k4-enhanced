@@ -1,0 +1,11 @@
+# build/run artifacts that never belong in version control
+*~
+*.swp
+*.log
+
+# locally generated release zips
+/dist/
+
+# compiled packages ARE intentionally tracked here:
+#   System/*.u/.ucl    the current verified build
+#   prebuilt/System/*  the binary packaged into releases

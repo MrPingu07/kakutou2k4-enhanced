@@ -46,3 +46,7 @@ Checklist:
     (`AnimEnd(1)`), when the pawn lands or leaves `PHYS_Falling` (`Tick`), or
     when another action takes the torso back (`SetAnimAction`).
   - Normal jumps and locomotion keep the existing torso lock.
+
+- [ ] ** As a client, Jumping, Double jumping and subsequent are in slow motion WHILE holding a regular, two handed weapon (Anything but Unarmed).**
+
+- [ ] **Unlike a host, a client cannot see everyone else in their combat-ready 'Ready' animation position. Only as if they were holding an invisible two-handed weapon (Default idle animation of the game).**
