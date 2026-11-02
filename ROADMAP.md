@@ -47,6 +47,23 @@ Checklist:
     when another action takes the torso back (`SetAnimAction`).
   - Normal jumps and locomotion keep the existing torso lock.
 
-- [ ] ** As a client, Jumping, Double jumping and subsequent are in slow motion WHILE holding a regular, two handed weapon (Anything but Unarmed).**
+- [x] ** As a client, Jumping, Double jumping and subsequent are in slow motion WHILE holding a regular, two handed weapon (Anything but Unarmed).**
+  - `bReplicateAnimations` is now off, matching stock `xPawn`. It was letting
+    the server's channel-0 `SimAnim` updates fight the client's own prediction,
+    which slowed jump and double-jump clips for clients holding any non-Unarmed
+    weapon. The martial-arts clips live on channel 1 and are simulated locally,
+    so they never needed `SimAnim`.
 
-- [ ] **Unlike a host, a client cannot see everyone else in their combat-ready 'Ready' animation position. Only as if they were holding an invisible two-handed weapon (Default idle animation of the game).**
+- [x] **Unlike a host, a client cannot see everyone else in their combat-ready 'Ready' animation position. Only as if they were holding an invisible two-handed weapon (Default idle animation of the game).**
+  - `bK2k4Combat` and `bK2k4Unarmed` are replicated, and remote proxies replay
+    the replicated mod `AnimAction` on channel 1. Other players now enter the
+    same `Ready` / `FlagReady` stance on a client as they do on the host, and
+    their martial-arts attacks are visible too.
+  - Remote proxies have `Weapon == None`, so the overlay gates use
+    `K2k4IsUnarmed()` / `K2k4IsFlagFighting()`: a real weapon pointer when
+    available, the replicated state otherwise.
+  - Only the authority or the owning client ages the stance out; proxies keep
+    the replicated state until the server clears it.
+
+Code and package are rebuilt (`0 errors`, one pre-existing warning); the
+remote-client pass still needs to confirm both items in game.

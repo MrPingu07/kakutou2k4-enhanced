@@ -1,8 +1,8 @@
 # Unarmed animation timing on clients
 
-Status: kick fix confirmed on a remote client. The same class of bug is now
-confirmed to affect **jump, dodge and fall** clips, because those also run on
-channel 0. Air clips still need the same treatment.
+Status: kick and air fixes confirmed on a remote client. Stock-weapon jump
+timing and the remote combat stance are fixed in code and built; their final
+remote-client visual pass is still pending.
 This document records the symptom, root cause, the code changes made, the
 remaining verification steps, and permanent context for future maintenance.
 
@@ -306,9 +306,64 @@ behaviour. Non-Unarmed pawns still fall back to stock.
 The remote-host `RunF`/`JumpL_Mid` alternation may still be visible for
 *other* players because `bReplicateAnimations=True` keeps `SimAnim` writing
 channel 0 on proxies. That is a separate, viewer-side issue and is not
-required for the local player's air animations to work. If it still shows up
-after the air fix, consider setting `bReplicateAnimations=False` (stock) in a
-follow-up; do not mix it into this change.
+required for the local player's air animations to work. That flag was the cause
+of the remaining slow stock-weapon jumps and the remote-host flicker; it has
+since been turned off (see "Stock-weapon air timing" below).
+
+## Stock-weapon air timing (fixed)
+
+Symptom: on a client, jumping / double-jumping / further air jumps played in
+slow motion whenever the pawn held a regular two-handed weapon (anything except
+`Unarmed`). Unarmed was unaffected because its clips play on channel 1.
+
+Root cause: `K2k4xPawn` inherited `bReplicateAnimations=True`. With that flag,
+the server sends `SimAnim` (channel 0) to every client, while the client is
+also predicting channel-0 locomotion and jump clips from replicated movement
+state. Two writers on channel 0 produced the slow/stalling stock jump clips.
+There was no benefit to the flag: the martial-arts clips are on channel 1 and
+are simulated on each machine.
+
+Fix: set `bReplicateAnimations=False` in `K2k4xPawn` defaults, restoring the
+stock `xPawn` behaviour. This also removes the remote-host `RunF` /
+`JumpL_Mid` alternation that was noted above.
+
+## Remote combat stance and actions (fixed)
+
+Symptom: on a client, other players never entered the combat-ready `Ready` /
+`FlagReady` stance; they kept the stock idle as if holding an invisible
+two-handed weapon. The local player's own stance was correct.
+
+Root cause: `bK2k4Combat` was only set on the machine that ran
+`SetAnimAction()` (server, or the owning client for its own pawn). `AnimAction`
+is replicated, but stock does not call `SetAnimAction()` for remote pawns, and
+the mod's actions live on channel 1, which has no `SimAnim` replication.
+
+A second, less obvious cause: remote proxies usually have `Weapon == None`,
+because a pawn's current weapon is owner-only inventory state. Every mod path
+gated on `Unarmed(Weapon) != None`, so the whole upper-body overlay (ready
+included) was skipped on clients for other players even after combat state was
+replicated. Clients see other players' weapon models through the replicated
+attachment, not through `Pawn.Weapon`.
+
+Fix (`Classes/K2k4xPawn.uc`):
+
+1. `bK2k4Combat` and a new `bK2k4Unarmed` flag are replicated. The server
+   maintains `bK2k4Unarmed` from its real `Weapon` pointer.
+2. `K2k4IsUnarmed()` uses `Unarmed(Weapon)` when a real weapon pointer exists
+   and falls back to the replicated flag on proxies. `K2k4IsFlagFighting()`
+   does the same, falling back to the replicated PRI flag state.
+3. All overlay gates now use those helpers instead of `Unarmed(Weapon)`, so
+   remote pawns build their channel-1 stance locally.
+4. `K2k4SyncRemoteAction()` watches replicated `AnimAction` on remote proxies
+   and replays the mod's upper-body and kick actions through the same
+   `SetAnimAction()` path used locally.
+5. `K2k4RunsCombatTimer()` gates combat timeout to `ROLE_Authority` or the
+   locally controlled pawn. A proxy keeps the replicated stance until the
+   server clears it; `K2k4ResetUpperBody()` likewise does not stomp a
+   replicated stance while waiting for the weapon to arrive.
+
+Build result: 0 errors, 1 pre-existing warning (`MutKakutou2k4` class name).
+Both items still need a final remote-client visual pass.
 
 ## Asset facts (PSA metadata)
 
@@ -461,3 +516,14 @@ runs the code, so server and client logs must be kept side by side.
   direction-relative dodge clip. First jumps keep the speed gate.
 - 2026-11-01: **Remote client confirmed the slow-double-jump fix:** "it works
   PERFECT now." Both client-side animation fixes are verified and released.
+- 2026-11-01: Fixed the two remaining client reports. Stock-weapon air clips:
+  removed `bReplicateAnimations=True`, which made server `SimAnim` and client
+  prediction both write channel 0. Remote stance: replicated `bK2k4Combat`,
+  replayed mod `AnimAction` on proxies, and moved combat timeout to the
+  authority/owning client. Rebuilt package (0 errors, 1 pre-existing warning).
+  Remote-client visual verification pending.
+- 2026-11-01: Follow-up after the remote stance still failed: remote proxies
+  have `Weapon == None`, so every `Unarmed(Weapon)` gate skipped the overlay on
+  clients. Added replicated `bK2k4Unarmed` and `K2k4IsUnarmed()` /
+  `K2k4IsFlagFighting()` proxy-safe helpers, and routed all overlay gates
+  through them. Rebuilt package (0 errors, 1 pre-existing warning).

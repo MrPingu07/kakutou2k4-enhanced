@@ -44,6 +44,7 @@ var bool bK2k4AirFullBody;      // a fast air clip currently owns hips and up
 var bool bK2k4Emoting;          // an emote/taunt is playing; channel 1 is free
 var float K2k4KickTimeout;      // safety net if AnimEnd never arrives
 var bool bK2k4Combat;           // combat stance: ready pose on the torso
+var bool bK2k4Unarmed;          // replicated: Unarmed equipped (remote-proxy safe)
 var float K2k4CombatTime;       // last time a combat action ran
 var float K2k4CombatHold;       // seconds without combat before relaxing
 var float K2k4RelaxBlend;       // blend-out time for the return to relaxed
@@ -62,11 +63,12 @@ var float K2k4ArmAlpha;			// how much of the arm-down offset is applied (0..1)
 var bool bK2k4ArmOn;			// the arm bones currently carry an offset
 var float K2k4NetDbgTime;		// next periodic network-animation log line
 var float K2k4ActionStart;		// Level.TimeSeconds when the last action began
+var name K2k4LastRemoteAction;	// last AnimAction replayed on a remote proxy
 
 replication
 {
 	reliable if (bNetDirty && (Role==ROLE_AUTHORITY))
-        PrevAnimAction, bK2k4DebugNetAnim;
+        PrevAnimAction, bK2k4DebugNetAnim, bK2k4Combat, bK2k4Unarmed;
 }
 
 simulated function AssignInitialPose()
@@ -89,6 +91,15 @@ simulated function Tick(float DeltaTime)
 	local PlayerController pc;
 	local bool bGTA;
 
+	// The server is the only machine that can see every pawn's Weapon
+	// pointer. Remote proxies usually have Weapon == None, so they use this
+	// replicated flag instead of Unarmed(Weapon).
+	if (Role == ROLE_Authority)
+	{
+		if ( bK2k4Unarmed != (Unarmed(Weapon) != None) )
+			bK2k4Unarmed = (Unarmed(Weapon) != None);
+	}
+
 	pc = PlayerController(Controller);
 	// The dedicated third-person mutator owns the camera whenever it is
 	// installed. Detect it by name so Kakutou has no hard package dependency.
@@ -103,7 +114,7 @@ simulated function Tick(float DeltaTime)
 
 	if (pc != None)
 	{
-		if ( (Weapon != None) && Weapon.IsA('Unarmed') )
+		if ( K2k4IsUnarmed() )
 		{
 			// GTA draws the stock crosshair and uses it for aiming, so leave
 			// it alone. Without GTA keep the original HUD hiding.
@@ -124,16 +135,16 @@ simulated function Tick(float DeltaTime)
 				if (IdleWeaponAnim != K2k4RelaxIdle())
 					IdleWeaponAnim = K2k4RelaxIdle();
 			}
-			else if (Unarmed(Weapon).bFlagFighting && (IdleWeaponAnim!='FlagReady') )
+			else if (K2k4IsFlagFighting() && (IdleWeaponAnim!='FlagReady') )
 				IdleWeaponAnim='FlagReady';
-			else if (!Unarmed(Weapon).bFlagFighting && (IdleWeaponAnim!='Ready') )
+			else if (!K2k4IsFlagFighting() && (IdleWeaponAnim!='Ready') )
 				IdleWeaponAnim='Ready';
 		}
 		else if (pc.myHUD != None)
 		{
 			pc.myHUD.bCrosshairShow = pc.myHUD.default.bCrosshairShow;
 		}
-		if ( (Weapon == None) || !Weapon.IsA('Unarmed') )
+		if ( !K2k4IsUnarmed() )
 			IdleRestAnim = default.IdleRestAnim;
 	}
 
@@ -142,6 +153,7 @@ simulated function Tick(float DeltaTime)
 	if ( bK2k4AirFullBody && (Physics != PHYS_Falling) )
 		K2k4RestoreAirUpperBody();
 
+	K2k4SyncRemoteAction();
 	K2k4UpdateUpperBody();
 	K2k4UpdateArmDown(DeltaTime);
 	if ( bK2k4DebugAnim && (pc != None) )
@@ -154,6 +166,61 @@ simulated function Tick(float DeltaTime)
 
 	PrevAnimAction = AnimAction;
 	super.Tick(DeltaTime);
+}
+
+// ---------------------------------------------------------------------------
+// Remote proxy animation state
+// ---------------------------------------------------------------------------
+
+// Remote proxies usually have Weapon == None because inventory is owner-only,
+// so Unarmed(Weapon) is not usable there. The server replicates bK2k4Unarmed
+// for exactly this case; a real local Weapon pointer always wins when present.
+simulated function bool K2k4IsUnarmed()
+{
+	if ( Unarmed(Weapon) != None )
+		return true;
+	// The server and the owning client know the real weapon; a remote proxy
+	// trusts the replicated flag even if it carries a stale Weapon pointer.
+	if ( (Role == ROLE_Authority) || IsLocallyControlled() )
+		return false;
+	return bK2k4Unarmed;
+}
+
+simulated function bool K2k4IsFlagFighting()
+{
+	if ( Unarmed(Weapon) != None )
+		return Unarmed(Weapon).bFlagFighting;
+	return (PlayerReplicationInfo != None) && (PlayerReplicationInfo.HasFlag != None);
+}
+
+// Only the machine that owns the real simulation ages the combat stance out.
+// A remote proxy keeps the replicated bK2k4Combat value until the server sends
+// the timeout, so other players stay in the ready pose on every client.
+simulated function bool K2k4RunsCombatTimer()
+{
+	return (Role == ROLE_Authority) || IsLocallyControlled();
+}
+
+// Remote proxies receive AnimAction, but stock does not replay it for us.
+// Combat actions live on channel 1, so without this a proxy would never show
+// them and would also never enter the combat stance. Replay only the actions
+// this class owns; stock, air and emote names keep their normal paths.
+simulated function K2k4SyncRemoteAction()
+{
+	if ( (Role == ROLE_Authority) || IsLocallyControlled() )
+		return;
+
+	if ( AnimAction == K2k4LastRemoteAction )
+		return;
+
+	K2k4LastRemoteAction = AnimAction;
+	if ( (AnimAction == '') || !K2k4IsUnarmed() )
+		return;
+
+	if ( !K2k4IsKickAction(AnimAction) && !K2k4IsUpperAction(AnimAction) )
+		return;
+
+	SetAnimAction(AnimAction);
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +253,7 @@ simulated function name K2k4DesiredUpperIdle()
 			return K2k4RelaxIdle();
 		return '';
 	}
-	if ( (Unarmed(Weapon) != None) && Unarmed(Weapon).bFlagFighting )
+	if ( K2k4IsFlagFighting() )
 		return 'FlagReady';
 	return 'Ready';
 }
@@ -272,7 +339,7 @@ simulated function bool K2k4CanOverrideAirAnim(optional bool bAllowSlow)
 {
 	local vector FlatVel;
 
-	if ( Unarmed(Weapon) == None )
+	if ( !K2k4IsUnarmed() )
 		return false;
 
 	if ( bAllowSlow )
@@ -380,7 +447,10 @@ simulated function K2k4ResetUpperBody()
 	bK2k4Kicking = false;
 	bK2k4AirFullBody = false;
 	K2k4UpperIdle = '';
-	bK2k4Combat = false;
+	// Keep the replicated stance on remote proxies: the server sends the real
+	// clear, and the pawn may simply not have its weapon replicated yet.
+	if ( K2k4RunsCombatTimer() )
+		bK2k4Combat = false;
 	AnimBlendToAlpha(1, 0.0, 0.15);
 }
 
@@ -394,7 +464,7 @@ simulated function K2k4DebugAnim()
 	GetAnimParams(1, S1, F, R);
 	if ( (S0 != K2k4DbgSeq0) || (S1 != K2k4DbgSeq1) || (IdleWeaponAnim != K2k4DbgIdle) )
 	{
-		log("K2k4DBG t="$Level.TimeSeconds$" ch0="$S0$" ch1="$S1$" idle="$IdleWeaponAnim$" action="$AnimAction$" wait="$bWaitForAnim$" idleflag="$bIsIdle$" phys="$Physics$" combat="$bK2k4Combat$" unarmed="$(Unarmed(Weapon) != None));
+		log("K2k4DBG t="$Level.TimeSeconds$" ch0="$S0$" ch1="$S1$" idle="$IdleWeaponAnim$" action="$AnimAction$" wait="$bWaitForAnim$" idleflag="$bIsIdle$" phys="$Physics$" combat="$bK2k4Combat$" unarmed="$(K2k4IsUnarmed()));
 		K2k4DbgSeq0 = S0;
 		K2k4DbgSeq1 = S1;
 		K2k4DbgIdle = IdleWeaponAnim;
@@ -417,6 +487,9 @@ simulated function K2k4LogNetAnim(string Tag)
 		$" phys="$Physics
 		$" action="$AnimAction$" wait="$bWaitForAnim
 		$" kick="$bK2k4Kicking$" busy="$bK2k4UpperBusy
+		$" unarmedflag="$bK2k4Unarmed$" unarmed="$K2k4IsUnarmed()
+		$" combat="$bK2k4Combat$" local="$IsLocallyControlled()
+		$" weapon="$Weapon
 		$" ch0="$S0$" f0="$F0$" r0="$R0
 		$" ch1="$S1$" f1="$F1$" r1="$R1
 		$" sim="$SimAnim.AnimSequence
@@ -433,7 +506,7 @@ simulated function K2k4UpdateArmDown(float DeltaTime)
 	local float Target, Step;
 
 	Target = 0.0;
-	if ( (Health > 0) && (Unarmed(Weapon) != None) && (DrivenVehicle == None)
+	if ( (Health > 0) && K2k4IsUnarmed() && (DrivenVehicle == None)
 		&& !bK2k4Combat && K2k4RelaxOverlay() )
 		Target = 1.0;
 
@@ -487,7 +560,7 @@ simulated function K2k4RestoreAirUpperBody()
 
 	bK2k4AirFullBody = false;
 
-	if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
+	if ( K2k4IsUnarmed() && (Health > 0) && (DrivenVehicle == None) )
 		K2k4LoopUpperIdle();
 	else
 		K2k4ResetUpperBody();
@@ -514,7 +587,7 @@ simulated function K2k4UpdateUpperBody()
 
 	// Channel 1 is only ours while holding the martial-arts weapon, alive,
 	// and not riding something.
-	if ( (Health <= 0) || (Unarmed(Weapon) == None) || (DrivenVehicle != None) )
+	if ( (Health <= 0) || !K2k4IsUnarmed() || (DrivenVehicle != None) )
 	{
 		if (bK2k4UpperActive || bK2k4Kicking || bK2k4AirFullBody)
 			K2k4ResetUpperBody();
@@ -537,7 +610,8 @@ simulated function K2k4UpdateUpperBody()
 	{
 		if ( (bK2k4UpperBusy && IsAnimating(1)) || bK2k4Kicking || bK2k4Emoting )
 			K2k4CombatTime = Level.TimeSeconds;
-		else if ( Level.TimeSeconds - K2k4CombatTime > K2k4CombatHold )
+		else if ( K2k4RunsCombatTimer()
+			&& (Level.TimeSeconds - K2k4CombatTime > K2k4CombatHold) )
 			bK2k4Combat = false;
 	}
 
@@ -549,7 +623,7 @@ simulated function K2k4UpdateUpperBody()
 		if ( IsAnimating(0) || IsAnimating(1) )
 			return;	// emote still playing; channel 1 stays free
 		bK2k4Emoting = false;
-		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
+		if ( K2k4IsUnarmed() && (Health > 0) && (DrivenVehicle == None) )
 			K2k4LoopUpperIdle();
 		else
 			K2k4ResetUpperBody();
@@ -619,7 +693,7 @@ simulated function AnimEnd(int Channel)
 	{
 		bK2k4Kicking = false;
 		bWaitForAnim = false;
-		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
+		if ( K2k4IsUnarmed() && (Health > 0) && (DrivenVehicle == None) )
 			K2k4LoopUpperIdle();
 		else
 			K2k4ResetUpperBody();
@@ -629,7 +703,7 @@ simulated function AnimEnd(int Channel)
 
 	if ( (Channel == 1) && bK2k4UpperActive )
 	{
-		if ( (Unarmed(Weapon) != None) && (Health > 0) && (DrivenVehicle == None) )
+		if ( K2k4IsUnarmed() && (Health > 0) && (DrivenVehicle == None) )
 		{
 			// Our overlay finished (or stock tried to blend it out): return to
 			// the martial-arts idle loop instead of releasing the torso.
@@ -661,7 +735,7 @@ simulated function SetAnimAction(name NewAction)	//function seems to play smooth
         K2k4RestoreAirUpperBody();
 
     // Not fighting unarmed: leave everything to stock xPawn.
-    if (Unarmed(Weapon) == None)
+    if (!K2k4IsUnarmed())
     {
         if (bK2k4UpperActive || bK2k4Kicking)
             K2k4ResetUpperBody();
@@ -790,7 +864,11 @@ defaultproperties
 {
     RequiredEquipment(1)="Kakutou2k4-Enhanced.Unarmed"
     bSpecialCalcView=True
-    bReplicateAnimations=True
+    // Stock xPawn leaves this off. Turning it on made the server's SimAnim
+    // (channel 0) fight the client's own prediction, which showed up as slow
+    // jump/double-jump animations whenever a regular weapon was held and as
+    // flicker on other players. Channel 1 is simulated on each machine.
+    bReplicateAnimations=False
     K2k4CombatHold=2.0
     K2k4RelaxBlend=1.0
     K2k4RelaxIdleAnim="Ready"
